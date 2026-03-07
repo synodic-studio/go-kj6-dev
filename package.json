@@ -1,13 +1,13 @@
 {
   "name": "go-kj6-dev",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "App link wrapper + key vault for Telegram",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "module",
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
 }

@@ -9,18 +9,24 @@ jobs:
   check-label:
     runs-on: codeberg-tiny
     steps:
-      - name: Check for qa-pass label
+      - name: Check for required labels
         run: |
-          FOUND=false
-          for label in ${{ join(github.event.pull_request.labels.*.name, ' ') }}; do
-            if [ "$label" = "qa-pass" ]; then
-              FOUND=true
-              break
+          LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
+          MISSING=""
+          for required in ci-pass qa-pass; do
+            FOUND=false
+            for label in $LABELS; do
+              if [ "$label" = "$required" ]; then
+                FOUND=true
+                break
+              fi
+            done
+            if [ "$FOUND" != "true" ]; then
+              MISSING="$MISSING $required"
             fi
           done
-          if [ "$FOUND" = "true" ]; then
-            echo "qa-pass label found"
-          else
-            echo "Missing required label: qa-pass"
+          if [ -n "$MISSING" ]; then
+            echo "Missing required labels:$MISSING"
             exit 1
           fi
+          echo "All required labels present: ci-pass, qa-pass"

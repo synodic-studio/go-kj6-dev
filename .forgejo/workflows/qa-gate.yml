@@ -7,13 +7,13 @@ on:
 
 jobs:
   check-label:
-    runs-on: codeberg-tiny
+    runs-on: self-hosted
     steps:
       - name: Check for required labels
         run: |
           LABELS="${{ join(github.event.pull_request.labels.*.name, ' ') }}"
           MISSING=""
-          for required in qa-pass author-pass; do
+          for required in qa-pass author-pass i18n-pass; do
             FOUND=false
             for label in $LABELS; do
               if [ "$label" = "$required" ]; then
@@ -29,4 +29,4 @@ jobs:
             echo "Missing required labels:$MISSING"
             exit 1
           fi
-          echo "All required labels present: qa-pass, author-pass"
+          echo "All required labels present: qa-pass, author-pass, i18n-pass"

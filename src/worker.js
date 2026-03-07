@@ -88,7 +88,7 @@ export default {
 
 function redirectPage(appUri, message) {
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -142,7 +142,7 @@ function redirectPage(appUri, message) {
 
 function usagePage() {
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -240,7 +240,7 @@ async function handleKeyVault(request, env, path) {
 function keyFormPage(keyName, error) {
   const label = keyName.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -322,7 +322,7 @@ function keyFormPage(keyName, error) {
 
 function keyExpiredPage() {
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -359,7 +359,7 @@ function keyExpiredPage() {
 
 function keySuccessPage(keyName) {
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -1,7 +1,7 @@
 name = "go-kj6-dev"
-main = "src/worker.js"
+pages_build_output_dir = "dist"
 compatibility_date = "2024-12-01"
 
-routes = [
-  { pattern = "go.kj6.dev/*", zone_name = "kj6.dev" }
-]
+[[kv_namespaces]]
+binding = "VAULT"
+id = "971c21b29b904c6ea95ebe79afa8b4d7"

@@ -17,6 +17,18 @@
  *   /                         → usage page
  */
 
+/**
+ * Cloudflare Workers handler for go.kj6.dev
+ * @typedef {Object} Env
+ * @property {import("@cloudflare/workers-types").KVNamespace} VAULT - Key-value store for tokens and keys
+ */
+
+/**
+ * Main Workers fetch handler
+ * @param {Request} request - Incoming HTTP request
+ * @param {Env} env - Workers environment bindings
+ * @returns {Promise<Response>} HTTP response
+ */
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -86,6 +98,12 @@ export default {
   },
 };
 
+/**
+ * Creates an HTML page that redirects to a native app URI
+ * @param {string} appUri - Native app URI (e.g., obsidian://, things://)
+ * @param {string} message - User-friendly message to display during redirect
+ * @returns {Response} HTML response with meta refresh and JS fallback
+ */
 function redirectPage(appUri, message) {
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -140,6 +158,10 @@ function redirectPage(appUri, message) {
   });
 }
 
+/**
+ * Generates the usage/help page HTML
+ * @returns {string} HTML content for the root page
+ */
 function usagePage() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -177,7 +199,7 @@ function usagePage() {
     <tr><td><code>/key/{uuid}</code></td><td>Key vault (token-secured)</td></tr>
   </table>
   <h2>Examples</h2>
-  <pre>go.kj6.dev/obs/EverythingEverywhereAllAtOnce/05-Fanta/gadget/report.md
+  <pre>go.kj6.dev/obs/Cobalt/05-Fanta/gadget/report.md
 go.kj6.dev/remind/Buy%20groceries
 go.kj6.dev/cal/2026-03-15
 go.kj6.dev/cal/2026-03-15/14:00
@@ -186,6 +208,11 @@ go.kj6.dev/raw/dGhpbmdzOi8vLw</pre>
 </html>`;
 }
 
+/**
+ * Creates an error response with plain text
+ * @param {string} msg - Error message
+ * @returns {Response} 400 Bad Request response
+ */
 function errorResponse(msg) {
   return new Response(`Error: ${msg}`, {
     status: 400,
@@ -193,6 +220,11 @@ function errorResponse(msg) {
   });
 }
 
+/**
+ * Escapes HTML special characters to prevent XSS
+ * @param {string} str - Input string
+ * @returns {string} HTML-escaped string
+ */
 function escapeHtml(str) {
   return str
     .replace(/&/g, "&amp;")
@@ -201,6 +233,11 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Escapes HTML attribute values to prevent XSS
+ * @param {string} str - Input string
+ * @returns {string} Attribute-escaped string
+ */
 function escapeAttr(str) {
   return str
     .replace(/&/g, "&amp;")
@@ -208,6 +245,13 @@ function escapeAttr(str) {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Handles key vault operations: form display and key submission
+ * @param {Request} request - HTTP request
+ * @param {Env} env - Workers environment
+ * @param {string} path - Request path (e.g., "/key/abc-123")
+ * @returns {Promise<Response>} Key form, success, or error response
+ */
 async function handleKeyVault(request, env, path) {
   const token = decodeURIComponent(path.slice(5)).replace(/\/$/, "");
   if (!token) {
@@ -237,6 +281,12 @@ async function handleKeyVault(request, env, path) {
   return errorResponse("Method not allowed.");
 }
 
+/**
+ * Generates HTML form for key submission
+ * @param {string} keyName - Name of the key being submitted
+ * @param {string} [error] - Optional error message to display
+ * @returns {Response} HTML form response
+ */
 function keyFormPage(keyName, error) {
   const label = keyName.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   const html = `<!DOCTYPE html>
@@ -320,6 +370,10 @@ function keyFormPage(keyName, error) {
   });
 }
 
+/**
+ * Generates expired/invalid token page
+ * @returns {Response} 404 error page
+ */
 function keyExpiredPage() {
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -357,6 +411,11 @@ function keyExpiredPage() {
   });
 }
 
+/**
+ * Generates success page after key submission
+ * @param {string} keyName - Name of the key that was saved
+ * @returns {Response} Success confirmation page
+ */
 function keySuccessPage(keyName) {
   const html = `<!DOCTYPE html>
 <html lang="en">

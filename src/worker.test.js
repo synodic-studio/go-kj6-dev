@@ -1,10 +1,21 @@
 import { describe, it, expect } from "vitest";
 import worker from "./worker.js";
 
+/**
+ * Creates a mock Request object for testing
+ * @param {string} path - Request path
+ * @param {string} [method="GET"] - HTTP method
+ * @returns {Request} Mock request
+ */
 function makeRequest(path, method = "GET") {
   return new Request(`https://go.kj6.dev${path}`, { method });
 }
 
+/**
+ * Creates a mock environment with KV store for testing
+ * @param {Object} [kvStore={}] - Initial key-value store data
+ * @returns {Object} Mock environment with VAULT namespace
+ */
 function mockEnv(kvStore = {}) {
   return {
     VAULT: {

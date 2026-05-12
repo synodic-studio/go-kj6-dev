@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.aider*
+.DS_Store
+dist/
+.beads/
+
+# Operational deploy config (worker name + KV namespace id are environment
+# state, not source). Use wrangler.example.toml as the template.
+wrangler.toml

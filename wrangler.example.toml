@@ -1,0 +1,17 @@
+# Copy this file to `wrangler.toml` and fill in your own values.
+# `wrangler.toml` itself is gitignored — it carries the name of your
+# Cloudflare Worker and (optionally) the KV namespace id used by the
+# /key vault route.
+
+name = "patchbay-url-scheme-wrapper"
+main = "src/worker.js"
+compatibility_date = "2024-12-01"
+
+# Optional. Required only if you want the /key vault route.
+# Create the namespace with:
+#   npx wrangler kv:namespace create VAULT
+# then paste the returned `id` here.
+#
+# [[kv_namespaces]]
+# binding = "VAULT"
+# id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

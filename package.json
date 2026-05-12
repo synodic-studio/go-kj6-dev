@@ -1,0 +1,16 @@
+{
+  "name": "patchbay-url-scheme-wrapper",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker that wraps custom URL schemes (obsidian://, x-apple-reminderkit://, calshow:, ...) in https:// links so chat apps recognize them as tappable. Optional KV-backed key vault.",
+  "scripts": {
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

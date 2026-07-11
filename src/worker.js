@@ -1,5 +1,5 @@
 /**
- * patchbay-url-scheme-wrapper
+ * patchbay-go
  *
  * Cloudflare Worker that wraps custom URL schemes (obsidian://, things://,
  * x-apple-reminderkit://, calshow:, etc.) in plain https:// URLs that
@@ -75,9 +75,13 @@ export default {
       const rest = decodeURIComponent(path.slice(5));
       const match = rest.match(/^(\d{4}-\d{2}-\d{2})(?:\/(\d{2}:\d{2}))?$/);
       if (!match) {
-        return errorResponse("Invalid date. Format: /cal/YYYY-MM-DD or /cal/YYYY-MM-DD/HH:MM");
+        return errorResponse(
+          "Invalid date. Format: /cal/YYYY-MM-DD or /cal/YYYY-MM-DD/HH:MM",
+        );
       }
-      const dateStr = match[2] ? `${match[1]}T${match[2]}:00` : `${match[1]}T00:00:00`;
+      const dateStr = match[2]
+        ? `${match[1]}T${match[2]}:00`
+        : `${match[1]}T00:00:00`;
       const epoch = Math.floor(new Date(dateStr).getTime() / 1000);
       const appUri = `calshow:${epoch}`;
       const display = match[2] ? `${match[1]} at ${match[2]}` : match[1];
@@ -86,12 +90,18 @@ export default {
 
     if (path.startsWith("/raw/")) {
       const encoded = path.slice(5);
+      let appUri;
       try {
-        const appUri = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
-        return redirectPage(appUri, "Redirecting to app...");
+        appUri = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
       } catch {
         return errorResponse("Invalid base64url encoding.");
       }
+      if (!isSafeScheme(appUri)) {
+        return errorResponse(
+          "Refused: only native app schemes are allowed here, not browser-privileged ones (javascript, data, http, https, ...).",
+        );
+      }
+      return redirectPage(appUri, "Redirecting to app...");
     }
 
     return errorResponse(`Unknown route: ${path}`);
@@ -164,34 +174,46 @@ function usagePage(host) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>patchbay-url-scheme-wrapper</title>
+  <title>Patchbay Go — Synodic Studio</title>
   <style>
     body {
       font-family: -apple-system, system-ui, sans-serif;
       max-width: 600px;
-      margin: 2rem auto;
-      padding: 0 1rem;
+      margin: 0 auto;
+      padding: 3rem 1rem;
       background: #1a1a2e;
       color: #e0e0e0;
+      line-height: 1.5;
     }
-    h1 { color: #7c3aed; }
+    .brand { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: #a78bfa; text-decoration: none; }
+    .brand:hover { color: #c4b5fd; }
+    h1 { color: #7c3aed; margin: 0.25rem 0 0.5rem; font-size: 2rem; }
+    .lede { font-size: 1.05rem; color: #cfcfe0; }
+    h2 { color: #7c3aed; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2.5rem; }
     code { background: #2a2a3e; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
     pre { background: #2a2a3e; padding: 1rem; border-radius: 6px; overflow-x: auto; }
-    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #333; }
     th { color: #7c3aed; }
+    .cta { display: inline-block; margin-top: 2.5rem; padding: 0.75rem 1.25rem; background: #7c3aed; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; }
+    .cta:hover { background: #6d28d9; }
+    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #333; font-size: 0.85rem; color: #888; }
+    footer a { color: #a78bfa; }
   </style>
 </head>
 <body>
-  <h1>patchbay-url-scheme-wrapper</h1>
-  <p>Wraps custom URL schemes in https:// links so Telegram (and other chat apps) recognize them as tappable.</p>
+  <a class="brand" href="https://synodic.co">Synodic Studio</a>
+  <h1>Patchbay Go</h1>
+  <p class="lede">A tiny link relay. It wraps native app links (<code>obsidian://</code>, <code>calshow:</code>, and friends) in plain <code>https://</code> so chat apps render them as tappable — tap on the go, the app opens.</p>
+  <a class="cta" href="https://synodic.co">Made by Synodic Studio →</a>
+  <h2>Routes</h2>
   <table>
     <tr><th>Route</th><th>Opens</th></tr>
     <tr><td><code>/obs/{vault}/{path}</code></td><td>Obsidian note</td></tr>
     <tr><td><code>/remind/{title}</code></td><td>Apple Reminders</td></tr>
     <tr><td><code>/cal/{yyyy-mm-dd}</code></td><td>Calendar.app date</td></tr>
     <tr><td><code>/cal/{date}/{hh:mm}</code></td><td>Calendar.app date+time</td></tr>
-    <tr><td><code>/raw/{base64url}</code></td><td>Any app scheme</td></tr>
+    <tr><td><code>/raw/{base64url}</code></td><td>Any native app scheme</td></tr>
     <tr><td><code>/key/{uuid}</code></td><td>Key vault (token-secured, KV-backed)</td></tr>
   </table>
   <h2>Examples</h2>
@@ -200,6 +222,7 @@ ${h}/remind/Buy%20groceries
 ${h}/cal/2026-03-15
 ${h}/cal/2026-03-15/14:00
 ${h}/raw/dGhpbmdzOi8vLw</pre>
+  <footer>Part of the <a href="https://synodic.co">Synodic</a> Patchbay family — small tools that connect a phone to a host that runs agents and apps.</footer>
 </body>
 </html>`;
 }
@@ -225,6 +248,40 @@ export function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/**
+ * Schemes the browser acts on itself instead of handing off to the OS.
+ * A /raw target using any of these could execute or navigate inside the
+ * Worker's own origin (XSS / open redirect), so they are refused.
+ */
+const BLOCKED_SCHEMES = new Set([
+  "javascript",
+  "data",
+  "vbscript",
+  "file",
+  "blob",
+  "about",
+  "http",
+  "https",
+  "ws",
+  "wss",
+]);
+
+/**
+ * A /raw URI is safe to redirect to only if it carries an explicit scheme
+ * that the browser passes through to the OS (obsidian:, things:, ...) rather
+ * than one the browser evaluates itself. Anything without a clean `scheme:`
+ * prefix, or whose scheme is browser-privileged, is rejected — fail closed.
+ * @param {string} uri
+ * @returns {boolean}
+ */
+export function isSafeScheme(uri) {
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(uri);
+  if (!match) {
+    return false;
+  }
+  return !BLOCKED_SCHEMES.has(match[1].toLowerCase());
 }
 
 /**
@@ -265,7 +322,9 @@ async function handleKeyVault(request, env, path) {
     if (!value || !value.trim()) {
       return keyFormPage(keyName, "Please paste a value.");
     }
-    await env.VAULT.put(`vault:${keyName}`, value.trim(), { expirationTtl: 300 });
+    await env.VAULT.put(`vault:${keyName}`, value.trim(), {
+      expirationTtl: 300,
+    });
     await env.VAULT.delete(`token:${token}`);
     return keySuccessPage(keyName);
   }
@@ -274,7 +333,7 @@ async function handleKeyVault(request, env, path) {
     status: 405,
     headers: {
       "Content-Type": "text/plain",
-      "Allow": "GET, POST",
+      Allow: "GET, POST",
     },
   });
 }
@@ -285,7 +344,9 @@ async function handleKeyVault(request, env, path) {
  * @returns {Response}
  */
 function keyFormPage(keyName, error) {
-  const label = keyName.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const label = keyName
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>

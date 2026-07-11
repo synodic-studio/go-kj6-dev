@@ -1,5 +1,5 @@
 {
-  "name": "patchbay-url-scheme-wrapper",
+  "name": "patchbay-go",
   "version": "1.0.0",
   "description": "Cloudflare Worker that wraps custom URL schemes (obsidian://, x-apple-reminderkit://, calshow:, ...) in https:// links so chat apps recognize them as tappable. Optional KV-backed key vault.",
   "scripts": {

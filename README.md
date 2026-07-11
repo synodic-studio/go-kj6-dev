@@ -1,6 +1,6 @@
-# patchbay-url-scheme-wrapper
+# patchbay-go
 
-A small Cloudflare Worker (~450 lines) that wraps custom URL schemes (`obsidian://`, `x-apple-reminderkit://`, `calshow:`, `things://`, `shortcuts://`, etc.) in plain `https://` links so Telegram and other chat apps recognize them as tappable.
+A small Cloudflare Worker (~450 lines) that wraps custom URL schemes (`obsidian://`, `x-apple-reminderkit://`, `calshow:`, `things://`, `shortcuts://`, etc.) in plain `https://` links so Telegram and other chat apps recognize them as tappable. Part of the Synodic Patchbay family; it lives at a short `go.` host (e.g. `go.synodic.co`) — tap a link on the go, the app opens.
 
 When an agent (or a script, or a human) wants to send a tappable link to a note in your Obsidian vault, a reminder, a calendar date, or anything else that lives behind a custom scheme, it cannot send `obsidian://open?vault=...` directly — most chat apps do not render custom schemes as links. Instead it sends `https://your-domain.example/obs/<vault>/<path>`. Tapping the link in the chat app opens it in the browser, which serves a tiny page that immediately redirects to the real native-scheme URI through `meta refresh` and a JS fallback. The app opens on your phone.
 
@@ -14,7 +14,7 @@ This is part of the [Patchbay](https://github.com/synodic-studio/patchbay-relay)
 | `/remind/<title>` | `x-apple-reminderkit://REMCDReminder/<title>` |
 | `/cal/<yyyy-mm-dd>` | `calshow:<epoch>` (Calendar.app) |
 | `/cal/<yyyy-mm-dd>/<hh:mm>` | `calshow:<epoch>` at a specific time |
-| `/raw/<base64url>` | Any custom scheme (base64url-encoded full URI) |
+| `/raw/<base64url>` | Any **native** custom scheme (base64url-encoded full URI). Browser-privileged schemes (`javascript:`, `data:`, `http(s):`, …) are refused. |
 | `/key/<uuid>` | Token-secured paste form (KV-backed, optional) |
 | `/` | Usage page (renders the deployed hostname automatically) |
 

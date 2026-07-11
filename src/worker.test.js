@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import worker, { escapeHtml, escapeAttr } from "./worker.js";
+import worker, { escapeHtml, escapeAttr, isSafeScheme } from "./worker.js";
+
+/**
+ * base64url-encodes a string the same way /raw expects its input.
+ * @param {string} uri
+ * @returns {string}
+ */
+function b64url(uri) {
+  return btoa(uri).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
 
 /**
  * Creates a mock Request object for testing
@@ -55,7 +64,8 @@ describe("root route", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toContain("text/html");
     const body = await res.text();
-    expect(body).toContain("patchbay-url-scheme-wrapper");
+    expect(body).toContain("Patchbay Go");
+    expect(body).toContain("synodic.co");
     expect(body).toContain("/obs/");
     expect(body).toContain("/remind/");
     expect(body).toContain("/cal/");
@@ -98,10 +108,7 @@ describe("/remind/ route", () => {
 
 describe("/cal/ route", () => {
   it("redirects to Calendar with date", async () => {
-    const res = await worker.fetch(
-      makeRequest("/cal/2026-03-15"),
-      mockEnv(),
-    );
+    const res = await worker.fetch(makeRequest("/cal/2026-03-15"), mockEnv());
     const body = await res.text();
     expect(body).toContain("calshow:");
     expect(body).toContain("2026-03-15");
@@ -140,6 +147,66 @@ describe("/raw/ route", () => {
     expect(res.status).toBe(400);
     const body = await res.text();
     expect(body).toContain("Invalid base64url");
+  });
+
+  it("allows another native app scheme", async () => {
+    const res = await worker.fetch(
+      makeRequest(`/raw/${b64url("shortcuts://run-shortcut?name=Test")}`),
+      mockEnv(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("shortcuts://");
+  });
+
+  it("refuses javascript: scheme", async () => {
+    const res = await worker.fetch(
+      makeRequest(`/raw/${b64url("javascript:alert(1)")}`),
+      mockEnv(),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.text();
+    expect(body).toContain("Refused");
+  });
+
+  it("refuses http(s): open redirect", async () => {
+    const res = await worker.fetch(
+      makeRequest(`/raw/${b64url("https://evil.example")}`),
+      mockEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses data: scheme", async () => {
+    const res = await worker.fetch(
+      makeRequest(`/raw/${b64url("data:text/html,<script>alert(1)</script>")}`),
+      mockEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("isSafeScheme", () => {
+  it("allows native app schemes", () => {
+    expect(isSafeScheme("obsidian://open?vault=x")).toBe(true);
+    expect(isSafeScheme("things:///")).toBe(true);
+    expect(isSafeScheme("x-apple-reminderkit://REMCDReminder/x")).toBe(true);
+    expect(isSafeScheme("calshow:12345")).toBe(true);
+  });
+
+  it("blocks browser-privileged schemes case-insensitively", () => {
+    expect(isSafeScheme("javascript:alert(1)")).toBe(false);
+    expect(isSafeScheme("JavaScript:alert(1)")).toBe(false);
+    expect(isSafeScheme("data:text/html,x")).toBe(false);
+    expect(isSafeScheme("http://x")).toBe(false);
+    expect(isSafeScheme("HTTPS://x")).toBe(false);
+    expect(isSafeScheme("file:///etc/passwd")).toBe(false);
+  });
+
+  it("rejects strings without a clean scheme (fails closed)", () => {
+    expect(isSafeScheme("evil.example/path")).toBe(false);
+    expect(isSafeScheme(" javascript:alert(1)")).toBe(false);
+    expect(isSafeScheme("")).toBe(false);
   });
 });
 

@@ -35,10 +35,6 @@ So callers rarely need `/raw`, common apps get named routes. Content routes take
 
 The full, live list renders on the `/` page of a deployment (single source of truth is `APP_ROUTES` in `src/worker.js` — adding an app is one entry). For any scheme not listed, use `/raw/<base64url>`.
 
-### Legacy host
-
-Requests to a host in `LEGACY_HOSTS` (currently `go.kj6.dev`) 301-redirect to the canonical `CANONICAL_HOST` (`go.synodic.co`), path and query preserved, so links already sent keep working while the canonical domain moves.
-
 ## Deploy
 
 You need a Cloudflare account and the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/).

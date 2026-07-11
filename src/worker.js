@@ -298,6 +298,22 @@ export default {
 };
 
 /**
+ * Encode a string as a JS string literal safe to embed inside an inline
+ * <script>. JSON.stringify alone does not neutralize "</script>" (or the
+ * JS-string-breaking line separators U+2028/U+2029), so a /raw value such as
+ * `x://</script><img onerror=...>` — whose scheme passes isSafeScheme — would
+ * otherwise break out of the script tag and execute (reflected XSS).
+ * @param {string} str
+ * @returns {string}
+ */
+export function jsStringLiteral(str) {
+  return JSON.stringify(str)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+
+/**
  * @param {string} appUri
  * @param {string} message
  * @returns {Response}
@@ -343,7 +359,7 @@ function redirectPage(appUri, message) {
     <p><a href="${escapeAttr(appUri)}">Tap here if nothing happened</a></p>
     <p class="fallback">This link opens a native app. It won't work in a desktop browser without the app installed.</p>
   </div>
-  <script>window.location.href = ${JSON.stringify(appUri)};</script>
+  <script>window.location.href = ${jsStringLiteral(appUri)};</script>
 </body>
 </html>`;
 

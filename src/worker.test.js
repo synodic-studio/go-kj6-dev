@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import worker, { escapeHtml, escapeAttr, isSafeScheme } from "./worker.js";
+import worker, {
+  escapeHtml,
+  escapeAttr,
+  isSafeScheme,
+  jsStringLiteral,
+} from "./worker.js";
 
 /**
  * base64url-encodes a string the same way /raw expects its input.
@@ -183,6 +188,37 @@ describe("/raw/ route", () => {
       mockEnv(),
     );
     expect(res.status).toBe(400);
+  });
+
+  it("neutralizes a </script> breakout payload (no reflected XSS)", async () => {
+    // scheme "x" passes isSafeScheme, but the rest is attacker-controlled
+    const payload = "x://</script><img src=x onerror=alert(1)>";
+    const res = await worker.fetch(
+      makeRequest(`/raw/${b64url(payload)}`),
+      mockEnv(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    // The inline <script> block must not be closed early by the payload:
+    // its captured content escapes the payload's </script> and remains a
+    // complete statement (ends with ';'). With the bug it truncates at the
+    // payload's raw </script>, dropping the escaped marker and the semicolon.
+    const scriptContent = body.match(/<script>([\s\S]*?)<\/script>/)[1];
+    expect(scriptContent).toContain("\\u003c/script");
+    expect(scriptContent.trim().endsWith(";")).toBe(true);
+  });
+});
+
+describe("jsStringLiteral", () => {
+  it("escapes </script> and & so a value cannot break out of an inline script", () => {
+    expect(jsStringLiteral("a</script>b")).toBe('"a\\u003c/script\\u003eb"');
+    expect(jsStringLiteral("x&y")).toBe('"x\\u0026y"');
+  });
+
+  it("still round-trips as a valid JS string for a normal scheme", () => {
+    expect(JSON.parse(jsStringLiteral("things:///add?title=Hi"))).toBe(
+      "things:///add?title=Hi",
+    );
   });
 });
 

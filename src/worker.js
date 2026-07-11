@@ -27,6 +27,171 @@
  * @property {import("@cloudflare/workers-types").KVNamespace} [VAULT]
  */
 
+/**
+ * @typedef {Object} AppRoute
+ * @property {string} prefix - Custom-scheme prefix; the URI-encoded path tail
+ *   is appended to it to form the final native-app URI.
+ * @property {string} label - Human name shown on the redirect + billboard.
+ * @property {string} param - Name of the tail value, for usage hints.
+ * @property {string} opens - One-line description of what it opens.
+ */
+
+/** Canonical host. Legacy hosts 301-redirect here, preserving path + query. */
+const CANONICAL_HOST = "go.synodic.co";
+
+/** Old hosts kept alive only to forward already-sent links to the canonical host. */
+const LEGACY_HOSTS = new Set(["go.kj6.dev"]);
+
+/**
+ * Named routes for popular apps so callers rarely need /raw. Each maps a short
+ * path segment to a custom-scheme prefix; `/things/Buy%20milk` becomes
+ * `things:///add?title=Buy%20milk`. Only *custom* schemes belong here — apps
+ * that open via an https universal link (Maps, Spotify web, ...) need no
+ * wrapping. Routes are safe by construction (fixed prefix + encoded tail), so
+ * they skip the isSafeScheme check that /raw needs.
+ * @type {Record<string, AppRoute>}
+ */
+const APP_ROUTES = {
+  // Content deep-links: the path tail is a single free-text value that gets
+  // URI-encoded and appended to `prefix`. These replace most /raw usage.
+  things: {
+    prefix: "things:///add?title=",
+    label: "Things",
+    param: "title",
+    opens: "Things — quick-add a to-do",
+  },
+  shortcuts: {
+    prefix: "shortcuts://run-shortcut?name=",
+    label: "Shortcuts",
+    param: "name",
+    opens: "Shortcuts — run a shortcut by name",
+  },
+  bear: {
+    prefix: "bear://x-callback-url/create?title=",
+    label: "Bear",
+    param: "title",
+    opens: "Bear — new note",
+  },
+  drafts: {
+    prefix: "drafts://x-callback-url/create?text=",
+    label: "Drafts",
+    param: "text",
+    opens: "Drafts — new draft",
+  },
+  ulysses: {
+    prefix: "ulysses://x-callback-url/new-sheet?text=",
+    label: "Ulysses",
+    param: "text",
+    opens: "Ulysses — new sheet",
+  },
+  todoist: {
+    prefix: "todoist://addtask?content=",
+    label: "Todoist",
+    param: "content",
+    opens: "Todoist — add a task",
+  },
+  omnifocus: {
+    prefix: "omnifocus:///add?name=",
+    label: "OmniFocus",
+    param: "name",
+    opens: "OmniFocus — add a task",
+  },
+  due: {
+    prefix: "due://x-callback-url/add?title=",
+    label: "Due",
+    param: "title",
+    opens: "Due — new reminder",
+  },
+  fantastical: {
+    prefix: "x-fantastical3://parse?sentence=",
+    label: "Fantastical",
+    param: "sentence",
+    opens: "Fantastical — new event from natural language",
+  },
+  twitter: {
+    prefix: "twitter://user?screen_name=",
+    label: "X (Twitter)",
+    param: "handle",
+    opens: "X — open a profile",
+  },
+  instagram: {
+    prefix: "instagram://user?username=",
+    label: "Instagram",
+    param: "username",
+    opens: "Instagram — open a profile",
+  },
+  telegram: {
+    prefix: "tg://resolve?domain=",
+    label: "Telegram",
+    param: "username",
+    opens: "Telegram — open a user or channel",
+  },
+  whatsapp: {
+    prefix: "whatsapp://send?phone=",
+    label: "WhatsApp",
+    param: "phone",
+    opens: "WhatsApp — message a phone number",
+  },
+  googlemaps: {
+    prefix: "comgooglemaps://?q=",
+    label: "Google Maps",
+    param: "query",
+    opens: "Google Maps — search a place",
+  },
+  waze: {
+    prefix: "waze://?q=",
+    label: "Waze",
+    param: "address",
+    opens: "Waze — navigate to an address",
+  },
+  zoom: {
+    prefix: "zoommtg://zoom.us/join?confno=",
+    label: "Zoom",
+    param: "meeting-id",
+    opens: "Zoom — join a meeting by ID",
+  },
+
+  // Launchers: no argument, just open the app. `bare` ignores the path tail.
+  music: {
+    prefix: "music://",
+    label: "Apple Music",
+    bare: true,
+    opens: "Apple Music",
+  },
+  podcasts: {
+    prefix: "podcasts://",
+    label: "Apple Podcasts",
+    bare: true,
+    opens: "Apple Podcasts",
+  },
+  overcast: {
+    prefix: "overcast://",
+    label: "Overcast",
+    bare: true,
+    opens: "Overcast",
+  },
+  soundcloud: {
+    prefix: "soundcloud://",
+    label: "SoundCloud",
+    bare: true,
+    opens: "SoundCloud",
+  },
+  slack: { prefix: "slack://open", label: "Slack", bare: true, opens: "Slack" },
+  discord: {
+    prefix: "discord://",
+    label: "Discord",
+    bare: true,
+    opens: "Discord",
+  },
+  reddit: { prefix: "reddit://", label: "Reddit", bare: true, opens: "Reddit" },
+  linkedin: {
+    prefix: "linkedin://",
+    label: "LinkedIn",
+    bare: true,
+    opens: "LinkedIn",
+  },
+};
+
 export default {
   /**
    * @param {Request} request
@@ -36,6 +201,13 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (LEGACY_HOSTS.has(url.hostname)) {
+      return Response.redirect(
+        `https://${CANONICAL_HOST}${url.pathname}${url.search}`,
+        301,
+      );
+    }
 
     if (path === "/" || path === "") {
       return new Response(usagePage(url.host), {
@@ -104,6 +276,23 @@ export default {
       return redirectPage(appUri, "Redirecting to app...");
     }
 
+    const segments = path.slice(1).split("/");
+    const appKey = segments[0];
+    if (Object.prototype.hasOwnProperty.call(APP_ROUTES, appKey)) {
+      const route = APP_ROUTES[appKey];
+      if (route.bare) {
+        return redirectPage(route.prefix, `Opening ${route.label}`);
+      }
+      const tail = decodeURIComponent(segments.slice(1).join("/"));
+      if (!tail) {
+        return errorResponse(
+          `Missing input. Format: /${appKey}/<${route.param}>`,
+        );
+      }
+      const appUri = route.prefix + encodeURIComponent(tail);
+      return redirectPage(appUri, `Opening ${route.label}`);
+    }
+
     return errorResponse(`Unknown route: ${path}`);
   },
 };
@@ -169,6 +358,14 @@ function redirectPage(appUri, message) {
  */
 function usagePage(host) {
   const h = escapeHtml(host || "your-domain.example");
+  const appRows = Object.entries(APP_ROUTES)
+    .map(([key, route]) => {
+      const usage = route.bare
+        ? `<code>/${key}</code>`
+        : `<code>/${key}/{${escapeHtml(route.param)}}</code>`;
+      return `<tr><td>${usage}</td><td>${escapeHtml(route.opens)}</td></tr>`;
+    })
+    .join("\n    ");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -215,6 +412,12 @@ function usagePage(host) {
     <tr><td><code>/cal/{date}/{hh:mm}</code></td><td>Calendar.app date+time</td></tr>
     <tr><td><code>/raw/{base64url}</code></td><td>Any native app scheme</td></tr>
     <tr><td><code>/key/{uuid}</code></td><td>Key vault (token-secured, KV-backed)</td></tr>
+  </table>
+  <h2>Popular apps</h2>
+  <p>Named shortcuts so you rarely need <code>/raw</code>:</p>
+  <table>
+    <tr><th>Route</th><th>Opens</th></tr>
+    ${appRows}
   </table>
   <h2>Examples</h2>
   <pre>${h}/obs/MyVault/notes/today.md

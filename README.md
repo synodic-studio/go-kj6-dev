@@ -1,6 +1,6 @@
 # patchbay-go
 
-A small Cloudflare Worker (~450 lines) that wraps custom URL schemes (`obsidian://`, `x-apple-reminderkit://`, `calshow:`, `things://`, `shortcuts://`, etc.) in plain `https://` links so Telegram and other chat apps recognize them as tappable. Part of the Synodic Patchbay family; it lives at a short `go.` host (e.g. `go.synodic.co`) — tap a link on the go, the app opens.
+A small Cloudflare Worker that wraps custom URL schemes (`obsidian://`, `x-apple-reminderkit://`, `calshow:`, `things://`, `shortcuts://`, etc.) in plain `https://` links so Telegram and other chat apps recognize them as tappable. Part of the Synodic Patchbay family; it lives at a short `go.` host (e.g. `go.synodic.co`) — tap a link on the go, the app opens.
 
 When an agent (or a script, or a human) wants to send a tappable link to a note in your Obsidian vault, a reminder, a calendar date, or anything else that lives behind a custom scheme, it cannot send `obsidian://open?vault=...` directly — most chat apps do not render custom schemes as links. Instead it sends `https://your-domain.example/obs/<vault>/<path>`. Tapping the link in the chat app opens it in the browser, which serves a tiny page that immediately redirects to the real native-scheme URI through `meta refresh` and a JS fallback. The app opens on your phone.
 
@@ -17,6 +17,27 @@ This is part of the [Patchbay](https://github.com/synodic-studio/patchbay-relay)
 | `/raw/<base64url>` | Any **native** custom scheme (base64url-encoded full URI). Browser-privileged schemes (`javascript:`, `data:`, `http(s):`, …) are refused. |
 | `/key/<uuid>` | Token-secured paste form (KV-backed, optional) |
 | `/` | Usage page (renders the deployed hostname automatically) |
+
+### Popular app routes
+
+So callers rarely need `/raw`, common apps get named routes. Content routes take a single free-text value (URI-encoded automatically); launcher routes just open the app.
+
+```
+/things/<title>            things:///add?title=<title>
+/todoist/<content>         todoist://addtask?content=<content>
+/fantastical/<sentence>    x-fantastical3://parse?sentence=<sentence>
+/shortcuts/<name>          shortcuts://run-shortcut?name=<name>
+/bear/<title>  /drafts/<text>  /ulysses/<text>  /omnifocus/<name>  /due/<title>
+/twitter/<handle>  /instagram/<username>  /telegram/<username>  /whatsapp/<phone>
+/googlemaps/<query>  /waze/<address>  /zoom/<meeting-id>
+/music  /podcasts  /overcast  /soundcloud  /slack  /discord  /reddit  /linkedin   (launchers)
+```
+
+The full, live list renders on the `/` page of a deployment (single source of truth is `APP_ROUTES` in `src/worker.js` — adding an app is one entry). For any scheme not listed, use `/raw/<base64url>`.
+
+### Legacy host
+
+Requests to a host in `LEGACY_HOSTS` (currently `go.kj6.dev`) 301-redirect to the canonical `CANONICAL_HOST` (`go.synodic.co`), path and query preserved, so links already sent keep working while the canonical domain moves.
 
 ## Deploy
 

@@ -237,6 +237,72 @@ describe("unknown route", () => {
   });
 });
 
+describe("named app routes", () => {
+  it("encodes a free-text param into the app scheme (Things)", async () => {
+    const res = await worker.fetch(
+      makeRequest("/things/Buy%20milk"),
+      mockEnv(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("things:///add?title=Buy%20milk");
+  });
+
+  it("runs a Shortcut by name", async () => {
+    const res = await worker.fetch(
+      makeRequest("/shortcuts/Morning%20Routine"),
+      mockEnv(),
+    );
+    const body = await res.text();
+    expect(body).toContain("shortcuts://run-shortcut?name=Morning%20Routine");
+  });
+
+  it("opens a bare launcher with no argument (Slack)", async () => {
+    const res = await worker.fetch(makeRequest("/slack"), mockEnv());
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("slack://open");
+  });
+
+  it("errors when a param route is missing its input", async () => {
+    const res = await worker.fetch(makeRequest("/things"), mockEnv());
+    expect(res.status).toBe(400);
+    const body = await res.text();
+    expect(body).toContain("Missing input");
+  });
+
+  it("lists the app routes on the billboard", async () => {
+    const res = await worker.fetch(makeRequest("/"), mockEnv());
+    const body = await res.text();
+    expect(body).toContain("Popular apps");
+    expect(body).toContain("/things/");
+    expect(body).toContain("Fantastical");
+  });
+});
+
+describe("legacy host redirect", () => {
+  it("301-redirects go.kj6.dev to go.synodic.co, preserving path + query", async () => {
+    const res = await worker.fetch(
+      new Request("https://go.kj6.dev/obs/Cobalt/05-Fanta/note.md?x=1"),
+      mockEnv(),
+    );
+    expect(res.status).toBe(301);
+    expect(res.headers.get("Location")).toBe(
+      "https://go.synodic.co/obs/Cobalt/05-Fanta/note.md?x=1",
+    );
+  });
+
+  it("serves normally on the canonical host", async () => {
+    const res = await worker.fetch(
+      new Request("https://go.synodic.co/things/Test"),
+      mockEnv(),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("things:///add?title=Test");
+  });
+});
+
 describe("escapeHtml", () => {
   it("escapes ampersands", () => {
     expect(escapeHtml("a&b")).toBe("a&amp;b");

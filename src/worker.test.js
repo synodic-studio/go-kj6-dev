@@ -252,15 +252,6 @@ describe("isSafeScheme", () => {
 });
 
 describe("/key/ vault route", () => {
-  it("shows form when token is valid", async () => {
-    const kv = { "token:abc-123": "my-api-key" };
-    const res = await worker.fetch(makeRequest("/key/abc-123"), mockEnv(kv));
-    expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toContain("my-api-key");
-    expect(body).toContain("Paste your key");
-  });
-
   it("shows expired page for unknown token", async () => {
     const res = await worker.fetch(makeRequest("/key/bad-token"), mockEnv());
     expect(res.status).toBe(404);
@@ -410,101 +401,6 @@ describe("escapeAttr", () => {
 
   it("does not escape angle brackets (attribute-safe only)", () => {
     expect(escapeAttr("<>")).toBe("<>");
-  });
-});
-
-describe("/key/ POST submission flow", () => {
-  it("stores value in VAULT and deletes the token", async () => {
-    const kv = { "token:abc-123": "my-api-key" };
-    const env = mockEnv(kv);
-    const res = await worker.fetch(
-      makeFormPost("/key/abc-123", { value: "secret-value-123" }),
-      env,
-    );
-    expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toContain("Saved");
-    expect(body).toContain("my-api-key");
-    // Token should be deleted after successful submission
-    expect(await env.VAULT.get("token:abc-123")).toBeNull();
-    // Value should be stored under vault: prefix
-    expect(await env.VAULT.get("vault:my-api-key")).toBe("secret-value-123");
-  });
-
-  it("rejects empty value and re-shows form", async () => {
-    const kv = { "token:abc-123": "my-api-key" };
-    const res = await worker.fetch(
-      makeFormPost("/key/abc-123", { value: "   " }),
-      mockEnv(kv),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toContain("Please paste a value");
-    expect(body).toContain("Paste your key");
-  });
-
-  it("rejects missing value field and re-shows form", async () => {
-    const kv = { "token:abc-123": "my-api-key" };
-    const res = await worker.fetch(
-      makeFormPost("/key/abc-123", {}),
-      mockEnv(kv),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toContain("Please paste a value");
-  });
-
-  it("returns expired page when token is invalid on POST", async () => {
-    const res = await worker.fetch(
-      makeFormPost("/key/bad-token", { value: "something" }),
-      mockEnv(),
-    );
-    expect(res.status).toBe(404);
-    const body = await res.text();
-    expect(body).toContain("expired");
-  });
-
-  it("trims whitespace from submitted value", async () => {
-    const kv = { "token:abc-123": "my-key" };
-    const env = mockEnv(kv);
-    await worker.fetch(
-      makeFormPost("/key/abc-123", { value: "  trimmed-value  " }),
-      env,
-    );
-    expect(await env.VAULT.get("vault:my-key")).toBe("trimmed-value");
-  });
-});
-
-describe("/key/ unsupported methods", () => {
-  it("returns 405 for PUT", async () => {
-    const kv = { "token:abc-123": "my-key" };
-    const res = await worker.fetch(
-      makeRequest("/key/abc-123", "PUT"),
-      mockEnv(kv),
-    );
-    expect(res.status).toBe(405);
-    expect(res.headers.get("Allow")).toBe("GET, POST");
-    const body = await res.text();
-    expect(body).toContain("Method not allowed");
-  });
-
-  it("returns 405 for DELETE", async () => {
-    const kv = { "token:abc-123": "my-key" };
-    const res = await worker.fetch(
-      makeRequest("/key/abc-123", "DELETE"),
-      mockEnv(kv),
-    );
-    expect(res.status).toBe(405);
-    expect(res.headers.get("Allow")).toBe("GET, POST");
-  });
-
-  it("returns 405 for PATCH", async () => {
-    const kv = { "token:abc-123": "my-key" };
-    const res = await worker.fetch(
-      makeRequest("/key/abc-123", "PATCH"),
-      mockEnv(kv),
-    );
-    expect(res.status).toBe(405);
   });
 });
 

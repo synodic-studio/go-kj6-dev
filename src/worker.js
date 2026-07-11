@@ -7,20 +7,22 @@
  * When the wrapped link is opened, the page redirects into the native app via
  * a meta refresh and JS fallback.
  *
- * Also includes an optional KV-backed "key vault" route for passing a
- * short-lived value (API key, OTP, etc.) from a phone form into a service.
- * The worker writes the value to KV key `vault:<name>`; the host reads that
- * KV key directly (there is no GET /vault/<name> HTTP route on this worker).
+ * Also includes an optional end-to-end encrypted "key vault": a requester
+ * registers a public key, the phone encrypts the secret in the browser, and
+ * the worker stores only ciphertext, which the requester retrieves and
+ * decrypts. The worker never sees the plaintext and never holds a private key.
  *
  * Routes:
  *   /obs/<vault>/<path>       → obsidian://open?vault=<vault>&file=<path>
  *   /remind/<title>           → x-apple-reminderkit://REMCDReminder/<title>
  *   /cal/<yyyy-mm-dd>         → calshow:<epoch> (opens Calendar.app)
  *   /raw/<base64url>          → any custom scheme (base64url-encoded)
- *   /key/<uuid>               → token-secured paste form (needs VAULT KV)
+ *   POST /key/register        → start an E2E request {label, publicKey, webhook?}
+ *   /key/<uuid>               → browser-encrypting paste form (ciphertext only)
+ *   GET  /key/<uuid>/result   → one-shot ciphertext retrieval
  *   /                         → usage page
  *
- * The /key route is no-op if no `VAULT` KV namespace is bound.
+ * The /key routes are no-op if no `VAULT` KV namespace is bound.
  */
 
 /**
@@ -549,45 +551,16 @@ async function handleKeyVault(request, env, path, ctx) {
     return errorResponse("Missing token.");
   }
 
+  // Only the end-to-end path exists: the token must carry the requester's
+  // public key so the secret is encrypted in the browser and this worker
+  // only ever stores ciphertext (see handleKeyRegister). There is no
+  // plaintext flow.
   const raw = await env.VAULT.get(`token:${token}`);
-  if (!raw) {
+  const record = raw ? parseTokenRecord(raw) : null;
+  if (!record || !record.publicKey) {
     return keyExpiredPage();
   }
-
-  // End-to-end path: the token carries the requester's public key, so the
-  // secret is encrypted in the browser and this worker only ever stores
-  // ciphertext (see handleKeyRegister). Plain string tokens are the legacy
-  // same-owner flow below.
-  const record = parseTokenRecord(raw);
-  if (record && record.publicKey) {
-    return handleKeyVaultE2E(request, env, token, record, ctx);
-  }
-  const keyName = raw;
-
-  if (request.method === "GET") {
-    return keyFormPage(keyName);
-  }
-
-  if (request.method === "POST") {
-    const formData = await request.formData();
-    const value = formData.get("value");
-    if (!value || !value.trim()) {
-      return keyFormPage(keyName, "Please paste a value.");
-    }
-    await env.VAULT.put(`vault:${keyName}`, value.trim(), {
-      expirationTtl: 300,
-    });
-    await env.VAULT.delete(`token:${token}`);
-    return keySuccessPage(keyName);
-  }
-
-  return new Response("Error: Method not allowed.", {
-    status: 405,
-    headers: {
-      "Content-Type": "text/plain",
-      Allow: "GET, POST",
-    },
-  });
+  return handleKeyVaultE2E(request, env, token, record, ctx);
 }
 
 /**
@@ -958,92 +931,6 @@ function keyFormPageE2E(label, publicKeyB64) {
 }
 
 /**
- * @param {string} keyName
- * @param {string} [error]
- * @returns {Response}
- */
-function keyFormPage(keyName, error) {
-  const label = keyName
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Key Vault — ${escapeHtml(label)}</title>
-  <style>
-    body {
-      font-family: -apple-system, system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #1a1a2e;
-      color: #e0e0e0;
-    }
-    .card { width: 90%; max-width: 420px; padding: 2rem; }
-    h2 { color: #7c3aed; margin-top: 0; font-size: 1.1rem; }
-    .key-name {
-      background: #2a2a3e;
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 0.95rem;
-      margin-bottom: 1rem;
-      color: #a78bfa;
-    }
-    textarea {
-      width: 100%;
-      min-height: 100px;
-      background: #2a2a3e;
-      color: #e0e0e0;
-      border: 2px solid #333;
-      border-radius: 8px;
-      padding: 0.75rem;
-      font-family: monospace;
-      font-size: 0.9rem;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    textarea:focus { border-color: #7c3aed; outline: none; }
-    button {
-      width: 100%;
-      padding: 0.875rem;
-      margin-top: 1rem;
-      background: #7c3aed;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:active { background: #6d28d9; }
-    .error { color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; }
-    .note { color: #888; font-size: 0.75rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>Paste your key</h2>
-    <div class="key-name">${escapeHtml(keyName)}</div>
-    <form method="POST">
-      <textarea name="value" placeholder="Paste value here..." autofocus></textarea>
-      ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
-      <button type="submit">Submit</button>
-    </form>
-    <p class="note">Held for up to 5 minutes for the host to collect, then it expires.</p>
-  </div>
-</body>
-</html>`;
-  return new Response(html, {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}
-
-/**
  * @returns {Response}
  */
 function keyExpiredPage() {
@@ -1079,48 +966,6 @@ function keyExpiredPage() {
 </html>`;
   return new Response(html, {
     status: 404,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}
-
-/**
- * @param {string} keyName
- * @returns {Response}
- */
-function keySuccessPage(keyName) {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Key Saved</title>
-  <style>
-    body {
-      font-family: -apple-system, system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #1a1a2e;
-      color: #e0e0e0;
-    }
-    .card { text-align: center; padding: 2rem; max-width: 400px; }
-    .check { font-size: 3rem; margin-bottom: 1rem; }
-    h2 { color: #7c3aed; }
-    .note { color: #888; font-size: 0.85rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="check">&#10003;</div>
-    <h2>Saved</h2>
-    <p><code>${escapeHtml(keyName)}</code> stored securely.</p>
-    <p class="note">Expires in 5 minutes. You can close this tab.</p>
-  </div>
-</body>
-</html>`;
-  return new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }

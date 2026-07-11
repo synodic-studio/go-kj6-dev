@@ -5,7 +5,7 @@ description: Use when generating a tappable https link to a native-app URL schem
 
 # Patchbay Go
 
-Chat apps (Telegram especially) won't linkify custom URL schemes like `obsidian://` or `things:///`. Patchbay Go is a redirector at **`https://go.synodic.co`** that wraps them in a normal https link. Tap it → a tiny page 301/meta-redirects into the native app.
+Chat apps (Telegram especially) won't linkify custom URL schemes like `obsidian://` or `things:///`. Patchbay Go is a redirector at **`https://go.synodic.co`** that wraps them in a normal https link. Tap it → a tiny page meta-refreshes (with a JS fallback) into the native app.
 
 Always emit `https://go.synodic.co/...` links, never raw `obsidian://` / `things://` schemes, when the link is destined for a chat message.
 
@@ -42,6 +42,8 @@ Launchers (just open the app, no argument):
 ```
 
 The live, authoritative list renders on `https://go.synodic.co/` (single source of truth is `APP_ROUTES` in the patchbay-go worker). For any scheme not covered, base64url-encode the full URI and use `/raw/<base64url>`.
+
+Note: a named route with a wrong or stale scheme prefix produces a link that redirects but silently opens nothing — no error. If an app doesn't open, fall back to `/raw` with the correct scheme.
 
 ## Notes
 

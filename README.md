@@ -67,12 +67,12 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npm run deploy
 
 ## Optional: `/key` vault
 
-The `/key/<uuid>` route is a one-shot, KV-backed paste form for handing a secret value from a phone to a service the host fetches with `GET /vault/<name>` against the same KV namespace.
+The `/key/<uuid>` route is a KV-backed paste form for handing a secret value from a phone to a service, which reads it back from KV key `vault:<name>` directly (there is no `GET /vault/<name>` route on the worker). The value is encrypted at rest in Cloudflare KV, submitted over HTTPS, and TTL-expired within 5 minutes — short-lived and off the chat log, but not end-to-end encrypted (the worker and anything with KV access can read the plaintext during the window).
 
 To enable it:
 
 ```bash
-npx wrangler kv:namespace create VAULT
+npx wrangler kv namespace create VAULT
 ```
 
 Take the returned `id` and uncomment + paste it into the `[[kv_namespaces]]` block in your `wrangler.toml`. If the binding is not present, `/key/*` returns 400 — every other route still works.

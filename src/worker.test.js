@@ -267,6 +267,13 @@ describe("/key/ vault route", () => {
     const body = await res.text();
     expect(body).toContain("expired");
   });
+
+  it("returns 400 when no VAULT binding is configured", async () => {
+    const res = await worker.fetch(makeRequest("/key/abc-123"), {});
+    expect(res.status).toBe(400);
+    const body = await res.text();
+    expect(body).toContain("not configured");
+  });
 });
 
 describe("unknown route", () => {

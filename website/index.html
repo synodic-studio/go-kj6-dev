@@ -153,7 +153,7 @@
     <h2>One secret, without a chat log</h2>
     <div class="callout">
       <h3>The <span class="mono">/key</span> paste form</h3>
-      <p>The host drops a short-lived token in Cloudflare KV and sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it's handed back to the host and the token is deleted — a quiet way to move a secret from your phone to a server without it ever sitting in a chat.</p>
+      <p>The host drops a short-lived token in Cloudflare KV and sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it's handed back to the host and the token is deleted — a quiet way to move a secret from your phone to a server without it ever sitting in a chat. The value is encrypted at rest in Cloudflare KV, sent over HTTPS, and expires within five minutes.</p>
     </div>
   </section>
 

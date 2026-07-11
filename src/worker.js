@@ -1,15 +1,16 @@
 /**
  * patchbay-go
  *
- * Cloudflare Worker that wraps custom URL schemes (obsidian://, things://,
- * x-apple-reminderkit://, calshow:, etc.) in plain https:// URLs that
- * Telegram and other chat apps recognize as tappable. When the wrapped
- * link is opened, the page redirects into the native app via a meta
- * refresh and JS fallback.
+ * Cloudflare Pages worker (advanced-mode _worker.js) that wraps custom URL
+ * schemes (obsidian://, things://, x-apple-reminderkit://, calshow:, etc.) in
+ * plain https:// URLs that Telegram and other chat apps recognize as tappable.
+ * When the wrapped link is opened, the page redirects into the native app via
+ * a meta refresh and JS fallback.
  *
  * Also includes an optional KV-backed "key vault" route for passing a
- * short-lived value (API key, OTP, etc.) from a phone form into a
- * service the host fetches with `GET /vault/<name>` against the same KV.
+ * short-lived value (API key, OTP, etc.) from a phone form into a service.
+ * The worker writes the value to KV key `vault:<name>`; the host reads that
+ * KV key directly (there is no GET /vault/<name> HTTP route on this worker).
  *
  * Routes:
  *   /obs/<vault>/<path>       → obsidian://open?vault=<vault>&file=<path>
@@ -491,8 +492,10 @@ const BLOCKED_SCHEMES = new Set([
   "data",
   "vbscript",
   "file",
+  "filesystem",
   "blob",
   "about",
+  "view-source",
   "http",
   "https",
   "ws",
@@ -646,7 +649,7 @@ function keyFormPage(keyName, error) {
       ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
       <button type="submit">Submit</button>
     </form>
-    <p class="note">Stored for 5 minutes, one-time retrieval, then auto-deleted.</p>
+    <p class="note">Held for up to 5 minutes for the host to collect, then it expires.</p>
   </div>
 </body>
 </html>`;

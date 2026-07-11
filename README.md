@@ -69,6 +69,8 @@ CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npm run deploy
 
 The `/key/<uuid>` route is a KV-backed paste form for handing a secret value from a phone to a service, which reads it back from KV key `vault:<name>` directly (there is no `GET /vault/<name>` route on the worker). The value is encrypted at rest in Cloudflare KV, submitted over HTTPS, and TTL-expired within 5 minutes — short-lived and off the chat log, but not end-to-end encrypted (the worker and anything with KV access can read the plaintext during the window).
 
+**Only the deployment operator can initiate a `/key` flow.** Starting one means writing the `token:<uuid>` entry into the `VAULT` KV, which requires that deployment's Cloudflare credentials — there is no worker route that mints tokens. A third party who merely taps the domain cannot request a secret. Patchbay Go is also self-hosted: anyone who wants the `/key` feature runs their own copy on their own Cloudflare account, so secrets only ever live in the operator's own KV, never someone else's.
+
 To enable it:
 
 ```bash

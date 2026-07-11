@@ -4,7 +4,7 @@
   "description": "Cloudflare Pages worker that wraps custom URL schemes (obsidian://, x-apple-reminderkit://, calshow:, ...) in https:// links so chat apps recognize them as tappable. Optional KV-backed key vault.",
   "scripts": {
     "test": "vitest run",
-    "build": "mkdir -p dist && cp src/worker.js dist/_worker.js",
+    "build": "mkdir -p dist && cp src/worker.js dist/_worker.js && cp website/index.html dist/index.html",
     "deploy": "npm run build && wrangler pages deploy dist --project-name patchbay-go --branch main",
     "dev": "npm run build && wrangler pages dev dist"
   },

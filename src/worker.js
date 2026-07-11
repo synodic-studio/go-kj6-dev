@@ -210,6 +210,12 @@ export default {
     }
 
     if (path === "/" || path === "") {
+      // Serve the static marketing page (dist/index.html) when the Pages
+      // assets binding is present; fall back to the inline billboard (dev/test,
+      // or a deploy without the asset).
+      if (env && env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
       return new Response(usagePage(url.host), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patchbay Go — tappable links into your apps</title>
+<meta name="description" content="A tiny relay that wraps obsidian://, things://, calshow: and friends in plain https links, so Telegram and other chat apps render them as a single tap straight into the native app.">
+<meta property="og:title" content="Patchbay Go">
+<meta property="og:description" content="Wraps native app URL schemes in https links so chat apps make them tappable.">
+<style>
+  :root {
+    --bg: #14141f;
+    --panel: #1c1c2b;
+    --panel-2: #23233a;
+    --ink: #e8e8f0;
+    --muted: #9a9ab0;
+    --faint: #6a6a82;
+    --accent: #8b5cf6;
+    --accent-2: #a78bfa;
+    --line: #2e2e44;
+    --dead: #ef6a6a;
+    --live: #5ee0a0;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 1.25rem; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+
+  /* top bar */
+  header.bar { border-bottom: 1px solid var(--line); }
+  .bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .bar a.brand { color: var(--muted); text-decoration: none; font-size: .82rem; letter-spacing: .09em; text-transform: uppercase; }
+  .bar a.brand:hover { color: var(--ink); }
+  .bar a.brand b { color: var(--accent-2); font-weight: 600; }
+  .bar .repo { font-size: .82rem; color: var(--faint); text-decoration: none; }
+  .bar .repo:hover { color: var(--muted); }
+
+  /* hero */
+  .hero { padding: 4.5rem 0 2rem; }
+  .kicker { color: var(--accent-2); font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 .9rem; }
+  h1 { font-size: clamp(2.3rem, 7vw, 3.4rem); line-height: 1.05; margin: 0 0 1rem; letter-spacing: -.02em; }
+  .lede { font-size: 1.15rem; color: var(--muted); max-width: 34em; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* the mechanic: dead text -> tappable */
+  .demo { margin: 2.75rem 0 1rem; display: grid; gap: .75rem; }
+  .row { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.15rem; }
+  .row .tag { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: .5rem; }
+  .row.dead .tag { color: var(--dead); }
+  .row.live .tag { color: var(--live); }
+  .row .u { font-size: .95rem; word-break: break-all; }
+  .row.dead .u { color: var(--faint); text-decoration: line-through; text-decoration-color: rgba(239,106,106,.5); }
+  .row.live .u a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); padding-bottom: 1px; }
+  .row .note { color: var(--muted); font-size: .82rem; margin-top: .5rem; }
+  .arrow { text-align: center; color: var(--faint); font-size: 1.1rem; line-height: 1; }
+
+  /* how */
+  section { padding: 2.5rem 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-2); margin: 0 0 1rem; }
+  p { color: var(--muted); }
+  p strong { color: var(--ink); }
+  .flow { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem 1.25rem; overflow-x: auto; }
+  .flow pre { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.7; }
+  .flow .hl { color: var(--accent-2); }
+
+  /* routes grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .6rem; }
+  .cell { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: .7rem .85rem; }
+  .cell .r { font-size: .86rem; color: var(--ink); }
+  .cell .r b { color: var(--accent-2); font-weight: 600; }
+  .cell .o { font-size: .76rem; color: var(--faint); margin-top: .15rem; }
+  .apps { margin-top: 1rem; font-size: .9rem; color: var(--muted); }
+  .apps code { background: var(--panel-2); color: var(--accent-2); padding: 1px 6px; border-radius: 5px; font-size: .82rem; }
+
+  .callout { background: linear-gradient(180deg, var(--panel), var(--bg)); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem 1.35rem; }
+  .callout h3 { margin: 0 0 .4rem; font-size: 1rem; color: var(--ink); }
+  .callout p { margin: 0; font-size: .92rem; }
+
+  /* footer */
+  footer { border-top: 1px solid var(--line); padding: 2.25rem 0 3rem; }
+  .fcta { display: inline-flex; align-items: center; gap: .5rem; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; padding: .7rem 1.15rem; border-radius: 9px; }
+  .fcta:hover { background: #7c3aed; }
+  .fmeta { margin-top: 1.25rem; color: var(--faint); font-size: .84rem; }
+  .fmeta a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="https://synodic.co"><b>Synodic Studio</b></a>
+    <a class="repo" href="https://github.com/synodic-studio/patchbay-go">github ↗</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="hero">
+    <p class="kicker">Patchbay · a small tool</p>
+    <h1>Patchbay&nbsp;Go</h1>
+    <p class="lede">Chat apps won't turn <b>obsidian://</b> or <b>things://</b> into a link — they arrive as dead text. Patchbay Go wraps them in a plain <b>https://</b> URL so Telegram makes them a single tap, straight into the app.</p>
+  </div>
+
+  <div class="demo">
+    <div class="row dead">
+      <span class="tag">What the app sends</span>
+      <div class="u mono">obsidian://open?vault=Cobalt&amp;file=today.md</div>
+      <div class="note">Dead text in Telegram. Tapping does nothing.</div>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="row live">
+      <span class="tag">What Patchbay Go sends</span>
+      <div class="u mono"><a href="https://go.synodic.co/obs/Cobalt/today.md">go.synodic.co/obs/Cobalt/today.md</a></div>
+      <div class="note">One tap → a tiny redirect page → Obsidian opens on your phone.</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>How it works</h2>
+    <p>The chat app is the gatekeeper: its rule is <em>"a link starts with http(s)."</em> So you give it exactly that, and do the scheme swap one hop later in the browser, where custom schemes are allowed.</p>
+    <div class="flow">
+      <pre><span class="hl">https://go.synodic.co/obs/MyVault/notes/today.md</span>
+  → serves a one-line redirect page
+  → <span class="hl">obsidian://open?vault=MyVault&amp;file=notes/today.md</span>
+  → the app opens</pre>
+    </div>
+    <p style="margin-top:1rem">No auth, no logging, no server state. About 700 lines, zero runtime dependencies, free tier on Cloudflare Pages.</p>
+  </section>
+
+  <section>
+    <h2>Named routes, so nothing needs encoding</h2>
+    <div class="grid">
+      <div class="cell"><div class="r"><b>/obs</b>/&lt;vault&gt;/&lt;path&gt;</div><div class="o">Obsidian note</div></div>
+      <div class="cell"><div class="r"><b>/remind</b>/&lt;title&gt;</div><div class="o">Apple Reminders</div></div>
+      <div class="cell"><div class="r"><b>/cal</b>/&lt;yyyy-mm-dd&gt;</div><div class="o">Calendar.app</div></div>
+      <div class="cell"><div class="r"><b>/things</b>/&lt;title&gt;</div><div class="o">Things to-do</div></div>
+      <div class="cell"><div class="r"><b>/fantastical</b>/&lt;sentence&gt;</div><div class="o">Fantastical event</div></div>
+      <div class="cell"><div class="r"><b>/raw</b>/&lt;base64url&gt;</div><div class="o">any native scheme</div></div>
+    </div>
+    <p class="apps">…plus <code>/todoist</code>, <code>/bear</code>, <code>/drafts</code>, <code>/shortcuts</code>, <code>/whatsapp</code>, <code>/telegram</code>, <code>/googlemaps</code>, <code>/waze</code>, <code>/zoom</code> and launchers like <code>/slack</code> and <code>/music</code>. A language model writes <span class="mono">go.synodic.co/things/Buy%20milk</span> correctly on the first try; <code>/raw</code> covers the long tail — and refuses browser-privileged schemes, so a wrapped link can only ever open a native app, never run in the browser.</p>
+  </section>
+
+  <section>
+    <h2>One secret, without a chat log</h2>
+    <div class="callout">
+      <h3>The <span class="mono">/key</span> paste form</h3>
+      <p>The host drops a short-lived token in Cloudflare KV and sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it's handed back to the host and the token is deleted — a quiet way to move a secret from your phone to a server without it ever sitting in a chat.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="fcta" href="https://synodic.co">Made by Synodic Studio →</a>
+    <p class="fmeta">Part of the <a href="https://synodic.co/patchbay/">Patchbay</a> family — small tools that connect a phone chat app to a host that runs agents and apps. Open source, MIT · <a href="https://github.com/synodic-studio/patchbay-go">source on GitHub</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>

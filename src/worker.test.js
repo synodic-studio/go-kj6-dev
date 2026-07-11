@@ -507,3 +507,189 @@ describe("/key/ unsupported methods", () => {
     expect(res.status).toBe(405);
   });
 });
+
+/** base64 (standard or url) -> Uint8Array, for test-side crypto. */
+function b64bytes(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** Encrypt like the browser form does: AES-GCM + RSA-OAEP-wrapped key. */
+async function browserEncrypt(publicKey, plaintext) {
+  const aes = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt"],
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    aes,
+    new TextEncoder().encode(plaintext),
+  );
+  const wrapped = await crypto.subtle.wrapKey("raw", aes, publicKey, {
+    name: "RSA-OAEP",
+  });
+  const b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+  return {
+    v: 1,
+    alg: "RSA-OAEP+A256GCM",
+    wrappedKey: b64(wrapped),
+    iv: b64(iv),
+    ciphertext: b64(ct),
+  };
+}
+
+function registerReq(body) {
+  return new Request("https://go.synodic.co/key/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("end-to-end encrypted /key", () => {
+  async function agentKeypair() {
+    const kp = await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["wrapKey", "unwrapKey"],
+    );
+    const spki = new Uint8Array(
+      await crypto.subtle.exportKey("spki", kp.publicKey),
+    );
+    return { kp, pubB64: btoa(String.fromCharCode(...spki)) };
+  }
+
+  it("register -> encrypt -> submit -> retrieve -> decrypt round-trips", async () => {
+    const env = mockEnv();
+    const { kp, pubB64 } = await agentKeypair();
+
+    const reg = await worker.fetch(
+      registerReq({ label: "OpenAI API key", publicKey: pubB64 }),
+      env,
+    );
+    expect(reg.status).toBe(200);
+    const { uuid, url } = await reg.json();
+    expect(uuid).toBeTruthy();
+    expect(url).toContain(`/key/${uuid}`);
+
+    const form = await worker.fetch(makeRequest(`/key/${uuid}`), env);
+    const formBody = await form.text();
+    expect(formBody).toContain("Encrypted in your browser");
+    expect(formBody).toContain("OpenAI API key");
+
+    const secret = "sk-super-secret-value-123";
+    const envelope = await browserEncrypt(kp.publicKey, secret);
+    const sub = await worker.fetch(
+      new Request(`https://go.synodic.co/key/${uuid}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      }),
+      env,
+    );
+    expect(sub.status).toBe(200);
+
+    const result = await worker.fetch(makeRequest(`/key/${uuid}/result`), env);
+    expect(result.status).toBe(200);
+    const got = await result.json();
+
+    // Agent decrypts with its private key — the worker never could have.
+    const aes = await crypto.subtle.unwrapKey(
+      "raw",
+      b64bytes(got.wrappedKey),
+      kp.privateKey,
+      { name: "RSA-OAEP" },
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"],
+    );
+    const pt = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: b64bytes(got.iv) },
+      aes,
+      b64bytes(got.ciphertext),
+    );
+    expect(new TextDecoder().decode(pt)).toBe(secret);
+
+    // one-shot: second retrieval 404s
+    const again = await worker.fetch(makeRequest(`/key/${uuid}/result`), env);
+    expect(again.status).toBe(404);
+  });
+
+  it("rejects registration with an invalid public key", async () => {
+    const res = await worker.fetch(
+      registerReq({ label: "x", publicKey: "not-a-real-key" }),
+      mockEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a non-envelope (plaintext) submission", async () => {
+    const env = mockEnv();
+    const { pubB64 } = await agentKeypair();
+    const { uuid } = await (
+      await worker.fetch(registerReq({ label: "x", publicKey: pubB64 }), env)
+    ).json();
+    const sub = await worker.fetch(
+      new Request(`https://go.synodic.co/key/${uuid}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: "just-plaintext" }),
+      }),
+      env,
+    );
+    expect(sub.status).toBe(400);
+  });
+
+  it("requires a public key to register (no plaintext mode)", async () => {
+    const res = await worker.fetch(registerReq({ label: "x" }), mockEnv());
+    expect(res.status).toBe(400);
+  });
+
+  it("fires a signed webhook on submit when one is registered", async () => {
+    const env = mockEnv();
+    const { kp, pubB64 } = await agentKeypair();
+    const calls = [];
+    const orig = globalThis.fetch;
+    globalThis.fetch = async (url, opts) => {
+      calls.push({ url, opts });
+      return new Response("ok");
+    };
+    try {
+      const { uuid } = await (
+        await worker.fetch(
+          registerReq({
+            label: "x",
+            publicKey: pubB64,
+            webhook: "https://agent.example/hook",
+          }),
+          env,
+        )
+      ).json();
+      const envelope = await browserEncrypt(kp.publicKey, "secret");
+      await worker.fetch(
+        new Request(`https://go.synodic.co/key/${uuid}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(envelope),
+        }),
+        env,
+      );
+    } finally {
+      globalThis.fetch = orig;
+    }
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("https://agent.example/hook");
+    expect(calls[0].opts.headers["X-Patchbay-Signature"]).toBeTruthy();
+    const body = JSON.parse(calls[0].opts.body);
+    expect(body.envelope.alg).toBe("RSA-OAEP+A256GCM");
+  });
+});

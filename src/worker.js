@@ -197,9 +197,10 @@ export default {
   /**
    * @param {Request} request
    * @param {Env} env
+   * @param {ExecutionContext} [ctx]
    * @returns {Promise<Response>}
    */
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -226,7 +227,14 @@ export default {
       if (!env || !env.VAULT) {
         return errorResponse("Key vault is not configured on this deployment.");
       }
-      return handleKeyVault(request, env, path);
+      if (path === "/key/register") {
+        return handleKeyRegister(request, env);
+      }
+      if (path.endsWith("/result")) {
+        const uuid = decodeURIComponent(path.slice(5).replace(/\/result$/, ""));
+        return handleKeyResult(env, uuid);
+      }
+      return handleKeyVault(request, env, path, ctx);
     }
 
     if (path.startsWith("/obs/")) {
@@ -535,16 +543,26 @@ export function escapeAttr(str) {
  * @param {string} path
  * @returns {Promise<Response>}
  */
-async function handleKeyVault(request, env, path) {
+async function handleKeyVault(request, env, path, ctx) {
   const token = decodeURIComponent(path.slice(5)).replace(/\/$/, "");
   if (!token) {
     return errorResponse("Missing token.");
   }
 
-  const keyName = await env.VAULT.get(`token:${token}`);
-  if (!keyName) {
+  const raw = await env.VAULT.get(`token:${token}`);
+  if (!raw) {
     return keyExpiredPage();
   }
+
+  // End-to-end path: the token carries the requester's public key, so the
+  // secret is encrypted in the browser and this worker only ever stores
+  // ciphertext (see handleKeyRegister). Plain string tokens are the legacy
+  // same-owner flow below.
+  const record = parseTokenRecord(raw);
+  if (record && record.publicKey) {
+    return handleKeyVaultE2E(request, env, token, record, ctx);
+  }
+  const keyName = raw;
 
   if (request.method === "GET") {
     return keyFormPage(keyName);
@@ -569,6 +587,373 @@ async function handleKeyVault(request, env, path) {
       "Content-Type": "text/plain",
       Allow: "GET, POST",
     },
+  });
+}
+
+/**
+ * Parse a token KV value. E2E tokens are JSON `{label, publicKey, webhook,
+ * secret}`; the legacy same-owner flow stores a bare key-name string.
+ * @param {string} raw
+ * @returns {?{label:string, publicKey:string, webhook:?string, secret:string}}
+ */
+function parseTokenRecord(raw) {
+  try {
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === "object" && obj.publicKey ? obj : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST /key/register — an agent's opening handshake. It supplies a label, its
+ * RSA-OAEP public key, and an optional https webhook; no secret exists yet.
+ * The key is imported and REQUIRED, so there is no plaintext mode on this path.
+ * @param {Request} request
+ * @param {Env} env
+ * @returns {Promise<Response>}
+ */
+async function handleKeyRegister(request, env) {
+  if (request.method !== "POST") {
+    return methodNotAllowed("POST");
+  }
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const rlKey = `rl:register:${ip}`;
+  const count = parseInt((await env.VAULT.get(rlKey)) || "0", 10);
+  if (count >= 30) {
+    return jsonResponse({ error: "Rate limited. Try again shortly." }, 429);
+  }
+  await env.VAULT.put(rlKey, String(count + 1), { expirationTtl: 60 });
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Body must be JSON." }, 400);
+  }
+  const { label, publicKey, webhook } = body || {};
+  if (!publicKey || typeof publicKey !== "string") {
+    return jsonResponse(
+      { error: "A base64 SPKI RSA-OAEP publicKey is required." },
+      400,
+    );
+  }
+  if (!(await importRsaPublicKey(publicKey))) {
+    return jsonResponse(
+      { error: "publicKey is not a valid RSA-OAEP public key." },
+      400,
+    );
+  }
+  if (webhook != null && !/^https:\/\//.test(String(webhook))) {
+    return jsonResponse({ error: "webhook must be an https URL." }, 400);
+  }
+
+  const uuid = crypto.randomUUID();
+  const secret = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  const record = {
+    label: typeof label === "string" && label ? label.slice(0, 120) : "secret",
+    publicKey,
+    webhook: webhook != null ? String(webhook) : null,
+    secret,
+  };
+  await env.VAULT.put(`token:${uuid}`, JSON.stringify(record), {
+    expirationTtl: 600,
+  });
+  return jsonResponse({
+    uuid,
+    secret,
+    url: `https://${CANONICAL_HOST}/key/${uuid}`,
+  });
+}
+
+/**
+ * The end-to-end branch of the /key flow: serve the encrypting form on GET,
+ * store the ciphertext envelope on POST. The worker never sees plaintext and
+ * never holds a private key.
+ * @param {Request} request
+ * @param {Env} env
+ * @param {string} token
+ * @param {{label:string, publicKey:string, webhook:?string, secret:string}} record
+ * @param {ExecutionContext} [ctx]
+ * @returns {Promise<Response>}
+ */
+async function handleKeyVaultE2E(request, env, token, record, ctx) {
+  if (request.method === "GET") {
+    return keyFormPageE2E(record.label, record.publicKey);
+  }
+  if (request.method === "POST") {
+    let envelope;
+    try {
+      envelope = await request.json();
+    } catch {
+      return jsonResponse({ error: "Body must be the JSON envelope." }, 400);
+    }
+    if (!(await validateEnvelope(envelope, record.publicKey))) {
+      return jsonResponse(
+        { error: "Submission is not a valid encrypted envelope." },
+        400,
+      );
+    }
+    await env.VAULT.put(`vault:${token}`, JSON.stringify(envelope), {
+      expirationTtl: 600,
+    });
+    await env.VAULT.delete(`token:${token}`);
+    if (record.webhook) {
+      const job = fireWebhook(record.webhook, record.secret, token, envelope);
+      if (ctx && ctx.waitUntil) {
+        ctx.waitUntil(job);
+      } else {
+        await job;
+      }
+    }
+    return jsonResponse({ ok: true, stored: true });
+  }
+  return methodNotAllowed("GET, POST");
+}
+
+/**
+ * GET /key/<uuid>/result — one-shot retrieval of the stored ciphertext
+ * envelope for agents that cannot receive a webhook. Deleted on read.
+ * @param {Env} env
+ * @param {string} uuid
+ * @returns {Promise<Response>}
+ */
+async function handleKeyResult(env, uuid) {
+  if (!uuid) {
+    return jsonResponse({ error: "Missing token." }, 400);
+  }
+  const stored = await env.VAULT.get(`vault:${uuid}`);
+  if (!stored) {
+    return jsonResponse({ ready: false }, 404);
+  }
+  await env.VAULT.delete(`vault:${uuid}`);
+  return new Response(stored, {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Structural check that a submission is a real hybrid RSA-OAEP+AES-GCM
+ * envelope for the token's key — the wrapped AES key must be exactly the RSA
+ * modulus length, with a 12-byte IV and a GCM-tagged ciphertext. This can't
+ * cryptographically prove encryption (the worker holds no private key by
+ * design), but it rejects plaintext and malformed bodies.
+ * @param {*} envelope
+ * @param {string} publicKeyB64
+ * @returns {Promise<boolean>}
+ */
+async function validateEnvelope(envelope, publicKeyB64) {
+  if (
+    !envelope ||
+    envelope.v !== 1 ||
+    envelope.alg !== "RSA-OAEP+A256GCM" ||
+    typeof envelope.wrappedKey !== "string" ||
+    typeof envelope.iv !== "string" ||
+    typeof envelope.ciphertext !== "string"
+  ) {
+    return false;
+  }
+  let wrapped, iv, ct;
+  try {
+    wrapped = base64ToBytes(envelope.wrappedKey);
+    iv = base64ToBytes(envelope.iv);
+    ct = base64ToBytes(envelope.ciphertext);
+  } catch {
+    return false;
+  }
+  if (iv.length !== 12 || ct.length < 16) {
+    return false;
+  }
+  const pub = await importRsaPublicKey(publicKeyB64);
+  if (!pub) {
+    return false;
+  }
+  return wrapped.length === pub.algorithm.modulusLength / 8;
+}
+
+/**
+ * Best-effort signed callback to the agent's webhook. HMAC-SHA256 of the body
+ * with the per-request secret lets the agent verify the call is genuine.
+ * @param {string} url
+ * @param {string} secret
+ * @param {string} uuid
+ * @param {*} envelope
+ * @returns {Promise<void>}
+ */
+async function fireWebhook(url, secret, uuid, envelope) {
+  const payload = JSON.stringify({ uuid, envelope });
+  try {
+    const sig = await hmacHex(secret, payload);
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Patchbay-Signature": sig,
+      },
+      body: payload,
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // Non-fatal: the agent can still poll GET /key/<uuid>/result.
+  }
+}
+
+/**
+ * @param {string} b64
+ * @returns {Promise<?CryptoKey>}
+ */
+async function importRsaPublicKey(b64) {
+  try {
+    return await crypto.subtle.importKey(
+      "spki",
+      base64ToBytes(b64),
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      true,
+      ["encrypt"],
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {string} secret
+ * @param {string} message
+ * @returns {Promise<string>}
+ */
+async function hmacHex(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return toHex(new Uint8Array(sig));
+}
+
+/**
+ * @param {string} b64 - standard or base64url
+ * @returns {Uint8Array}
+ */
+function base64ToBytes(b64) {
+  const bin = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function toHex(bytes) {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * @param {*} obj
+ * @param {number} [status]
+ * @returns {Response}
+ */
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * @param {string} allow
+ * @returns {Response}
+ */
+function methodNotAllowed(allow) {
+  return new Response("Error: Method not allowed.", {
+    status: 405,
+    headers: { "Content-Type": "text/plain", Allow: allow },
+  });
+}
+
+/**
+ * @param {string} label
+ * @param {string} publicKeyB64
+ * @returns {Response}
+ */
+function keyFormPageE2E(label, publicKeyB64) {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Encrypted paste — ${escapeHtml(label)}</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1a1a2e; color: #e0e0e0; }
+    .card { width: 90%; max-width: 420px; padding: 2rem; }
+    h2 { color: #7c3aed; margin-top: 0; font-size: 1.1rem; }
+    .key-name { background: #2a2a3e; padding: 0.5rem 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.95rem; margin-bottom: 1rem; color: #a78bfa; }
+    textarea { width: 100%; min-height: 100px; background: #2a2a3e; color: #e0e0e0; border: 2px solid #333; border-radius: 8px; padding: 0.75rem; font-family: monospace; font-size: 0.9rem; resize: vertical; box-sizing: border-box; }
+    textarea:focus { border-color: #7c3aed; outline: none; }
+    button { width: 100%; padding: 0.875rem; margin-top: 1rem; background: #7c3aed; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.6; }
+    .error { color: #f87171; font-size: 0.85rem; margin-top: 0.5rem; }
+    .note { color: #888; font-size: 0.75rem; margin-top: 1rem; }
+    .lock { color: #5ee0a0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Paste your secret</h2>
+    <div class="key-name">${escapeHtml(label)}</div>
+    <textarea id="v" placeholder="Paste value here..." autofocus></textarea>
+    <p class="error" id="err" style="display:none"></p>
+    <button id="go" onclick="submitSecret()">Encrypt &amp; send</button>
+    <p class="note"><span class="lock">&#128274; Encrypted in your browser</span> before it is sent. The server only ever stores ciphertext and cannot read it.</p>
+  </div>
+  <script>
+    const PUBKEY = ${jsStringLiteral(publicKeyB64)};
+    const b64d = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    const b64e = (buf) => btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+    function showErr(m) { const e = document.getElementById("err"); e.textContent = m; e.style.display = "block"; }
+    function done() {
+      const card = document.querySelector(".card");
+      card.textContent = "";
+      const h = document.createElement("h2");
+      h.className = "lock";
+      h.textContent = "✓ Sent";
+      const p = document.createElement("p");
+      p.className = "note";
+      p.textContent = "Your secret was encrypted and delivered. You can close this tab.";
+      card.appendChild(h);
+      card.appendChild(p);
+    }
+    async function submitSecret() {
+      const val = document.getElementById("v").value;
+      if (!val.trim()) { showErr("Please paste a value."); return; }
+      const btn = document.getElementById("go");
+      btn.disabled = true;
+      try {
+        const pub = await crypto.subtle.importKey("spki", b64d(PUBKEY), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["wrapKey"]);
+        const aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, aes, new TextEncoder().encode(val));
+        const wrapped = await crypto.subtle.wrapKey("raw", aes, pub, { name: "RSA-OAEP" });
+        const envelope = { v: 1, alg: "RSA-OAEP+A256GCM", wrappedKey: b64e(wrapped), iv: b64e(iv), ciphertext: b64e(ct) };
+        const res = await fetch(location.pathname, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(envelope) });
+        if (res.ok) { done(); } else { showErr("The server rejected the submission."); btn.disabled = false; }
+      } catch (e) { showErr("Encryption failed in your browser."); btn.disabled = false; }
+    }
+  </script>
+</body>
+</html>`;
+  return new Response(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
 

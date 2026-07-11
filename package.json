@@ -1,11 +1,12 @@
 {
   "name": "patchbay-go",
   "version": "1.0.0",
-  "description": "Cloudflare Worker that wraps custom URL schemes (obsidian://, x-apple-reminderkit://, calshow:, ...) in https:// links so chat apps recognize them as tappable. Optional KV-backed key vault.",
+  "description": "Cloudflare Pages worker that wraps custom URL schemes (obsidian://, x-apple-reminderkit://, calshow:, ...) in https:// links so chat apps recognize them as tappable. Optional KV-backed key vault.",
   "scripts": {
     "test": "vitest run",
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "build": "mkdir -p dist && cp src/worker.js dist/_worker.js",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name patchbay-go --branch main",
+    "dev": "npm run build && wrangler pages dev dist"
   },
   "license": "MIT",
   "type": "module",

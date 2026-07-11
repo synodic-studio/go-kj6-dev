@@ -37,29 +37,32 @@ The full, live list renders on the `/` page of a deployment (single source of tr
 
 ## Deploy
 
-You need a Cloudflare account and the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
+Runs as a **Cloudflare Pages** project (direct upload, advanced mode — the build step just copies `src/worker.js` to `dist/_worker.js`). You need a Cloudflare account and the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
 
 ```bash
 npm install
-cp wrangler.example.toml wrangler.toml   # edit name to taste
-npx wrangler login                       # one time, interactive
-npx wrangler deploy
+cp wrangler.example.toml wrangler.toml   # edit project name to taste
+npm run deploy                           # build + wrangler pages deploy dist
 ```
 
-The first deploy gives you a `https://<worker-name>.<your-account>.workers.dev` URL. To put it on a custom domain you control (recommended — short URLs are nicer in chats), add a Workers route:
+`npm run deploy` runs `wrangler pages deploy dist --project-name <name> --branch main`. The first deploy gives you `https://<name>.pages.dev`.
+
+To put it on a short custom domain (recommended — nicer in chats), attach it to the Pages project and point DNS at `<name>.pages.dev` (proxied):
 
 ```bash
-npx wrangler routes create "go.example.com/*"
+# attach custom domain to the project
+curl -H "Authorization: Bearer $CF_TOKEN" -X POST \
+  "https://api.cloudflare.com/client/v4/accounts/$CF_ACCT/pages/projects/<name>/domains" \
+  -d '{"name":"go.example.com"}'
+# then create a proxied CNAME  go -> <name>.pages.dev  in that zone
 ```
-
-You will also need a CNAME (or proxy-orange-cloud A record) for `go.example.com` pointing at Cloudflare. The Workers route then takes over.
 
 ### Headless deploy with API tokens
 
-If you don't want to run `wrangler login` interactively (or you are deploying from a headless box), set `CLOUDFLARE_API_TOKEN` to a token with **Workers Scripts: Edit** and **Workers Routes: Edit** permissions on your zone:
+Set `CLOUDFLARE_API_TOKEN` (a token with **Cloudflare Pages: Edit**, plus **Workers Routes / DNS: Edit** on the zone if you attach a custom domain) and `CLOUDFLARE_ACCOUNT_ID` — no interactive `wrangler login` needed:
 
 ```bash
-CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npx wrangler deploy
+CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npm run deploy
 ```
 
 ## Optional: `/key` vault

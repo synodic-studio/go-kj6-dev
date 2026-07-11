@@ -117,6 +117,11 @@ describe("/cal/ route", () => {
     const body = await res.text();
     expect(body).toContain("calshow:");
     expect(body).toContain("2026-03-15");
+    // Must be Cocoa/CFAbsoluteTime (seconds since 2001), not Unix epoch:
+    // a 2026 date is ~7.95e8 in Cocoa time vs ~1.77e9 in Unix time.
+    const n = Number(body.match(/calshow:(\d+)/)[1]);
+    expect(n).toBeGreaterThan(700000000);
+    expect(n).toBeLessThan(1000000000);
   });
 
   it("redirects to Calendar with date and time", async () => {

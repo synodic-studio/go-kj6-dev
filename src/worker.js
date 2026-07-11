@@ -260,7 +260,13 @@ export default {
       const dateStr = match[2]
         ? `${match[1]}T${match[2]}:00`
         : `${match[1]}T00:00:00`;
-      const epoch = Math.floor(new Date(dateStr).getTime() / 1000);
+      // calshow: expects Cocoa/CFAbsoluteTime (seconds since 2001-01-01), NOT
+      // Unix epoch. Emitting Unix epoch opened Calendar ~31 years late
+      // (verified on-device 2026-07-11: /cal/2026-03-15 landed on March 2057).
+      // 978307200 = seconds from 1970-01-01 to 2001-01-01.
+      const COCOA_EPOCH_OFFSET = 978307200;
+      const epoch =
+        Math.floor(new Date(dateStr).getTime() / 1000) - COCOA_EPOCH_OFFSET;
       const appUri = `calshow:${epoch}`;
       const display = match[2] ? `${match[1]} at ${match[2]}` : match[1];
       return redirectPage(appUri, `Opening Calendar: ${display}`);

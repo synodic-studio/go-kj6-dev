@@ -65,21 +65,33 @@ Set `CLOUDFLARE_API_TOKEN` (a token with **Cloudflare Pages: Edit**, plus **Work
 CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npm run deploy
 ```
 
-## Optional: `/key` vault
+## Optional: `/key` vault (end-to-end encrypted)
 
-The `/key/<uuid>` route is a KV-backed paste form for handing a secret value from a phone to a service, which reads it back from KV key `vault:<name>` directly (there is no `GET /vault/<name>` route on the worker). The value is encrypted at rest in Cloudflare KV, submitted over HTTPS, and TTL-expired within 5 minutes — short-lived and off the chat log, but not end-to-end encrypted (the worker and anything with KV access can read the plaintext during the window).
+The `/key` routes move a secret from a phone into a service **without the worker ever seeing the plaintext**. The requester holds a keypair; the secret is encrypted in the browser to the requester's public key; the worker only ever stores ciphertext.
 
-**Only the deployment operator can initiate a `/key` flow.** Starting one means writing the `token:<uuid>` entry into the `VAULT` KV, which requires that deployment's Cloudflare credentials — there is no worker route that mints tokens. A third party who merely taps the domain cannot request a secret. Patchbay Go is also self-hosted: anyone who wants the `/key` feature runs their own copy on their own Cloudflare account, so secrets only ever live in the operator's own KV, never someone else's.
+```
+POST /key/register  {label, publicKey, webhook?}  -> {uuid, secret, url}
+GET  /key/<uuid>                                   -> browser-encrypting form
+POST /key/<uuid>     {envelope}                     -> stores ciphertext, fires webhook
+GET  /key/<uuid>/result                            -> one-shot ciphertext retrieval
+```
 
-To enable it:
+Flow: a requester generates a keypair and `POST`s its public key to `/key/register`; it sends the returned `https://<host>/key/<uuid>` link; the user taps, pastes, and the page encrypts (AES-GCM wrapped with the requester's RSA-OAEP key) and submits the envelope; the worker stores ciphertext and either fires the signed `webhook` or holds it for `GET /key/<uuid>/result` (one-shot). The requester decrypts with its private key, which never leaves its machine. The public key is validated at registration and required — there is no plaintext path.
+
+A ready-to-use client is in [`clients/patchbay_key.py`](clients/patchbay_key.py) (a self-contained `uv` script):
+
+```bash
+uv run clients/patchbay_key.py register my-service   # prints the tappable link
+uv run clients/patchbay_key.py fetch my-service       # decrypts into `pass`
+```
+
+To enable the routes, bind a KV namespace:
 
 ```bash
 npx wrangler kv namespace create VAULT
 ```
 
-Take the returned `id` and uncomment + paste it into the `[[kv_namespaces]]` block in your `wrangler.toml`. If the binding is not present, `/key/*` returns 400 — every other route still works.
-
-The expected flow is: the host generates a random token, calls `PUT token:<uuid> = <key-name>` on the KV (TTL e.g. 5 min), then DMs the user `https://your-domain.example/key/<uuid>`. The user taps, sees a form labeled with `<key-name>`, pastes the value, submits. The Worker writes `vault:<key-name> = <value>` with a 5-min TTL and deletes the token. The host polls `GET vault:<key-name>` and pulls the value into its real keystore.
+Paste the returned `id` into the `[[kv_namespaces]]` block in your `wrangler.toml`. If the binding is not present, `/key/*` returns 400 — every other route still works.
 
 ## Use it from anywhere
 

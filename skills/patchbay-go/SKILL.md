@@ -17,10 +17,17 @@ https://go.synodic.co/remind/<title>            → Apple Reminders
 https://go.synodic.co/cal/<yyyy-mm-dd>          → Calendar.app (optionally /<hh:mm>)
 https://go.synodic.co/raw/<base64url>           → any native scheme (browser-privileged
                                                    schemes like javascript:/http(s): refused)
-https://go.synodic.co/key/<uuid>                → one-shot KV-backed key paste form
+https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret intake form
 ```
 
 For Cobalt (the Obsidian vault) the first `/obs/` segment is always `Cobalt` — see the `cobalt-links` skill for vault-specific path rules.
+
+To collect a secret (API key, password) from a phone without it touching the chat log, use the `/key` flow via the reference client — it encrypts in the browser and the worker never sees the plaintext:
+
+```
+uv run <patchbay-go>/clients/patchbay_key.py register <service>   # prints the link
+uv run <patchbay-go>/clients/patchbay_key.py fetch <service>       # decrypts into pass
+```
 
 ## Named app routes (so you rarely need /raw)
 

@@ -153,7 +153,7 @@
     <h2>One secret, without a chat log</h2>
     <div class="callout">
       <h3>The <span class="mono">/key</span> paste form</h3>
-      <p>The host drops a short-lived token in Cloudflare KV and sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it's handed back to the host and the token is deleted — a quiet way to move a secret from your phone to a server without it ever sitting in a chat. The value is encrypted at rest in Cloudflare KV, sent over HTTPS, and expires within five minutes.</p>
+      <p>An agent sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it is <strong>encrypted in your browser</strong> — to the agent's own key — before it's sent. The relay only ever stores ciphertext and never holds the key to read it; the agent decrypts it on its own machine. A quiet way to move a secret from your phone into your automation without it ever sitting in a chat, or in anyone else's hands.</p>
     </div>
   </section>
 

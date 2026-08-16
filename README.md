@@ -49,17 +49,17 @@ The redirect page is the entire user-facing surface of a wrapped link: it flashe
 
 Common apps get named routes, so callers rarely need `/raw`. Each takes a single free-text value, URI-encoded for you.
 
-| Notes | Tasks | Messaging | Profiles | Places |
-| --- | --- | --- | --- | --- |
-| `/bear/<title>`<br>`/drafts/<text>`<br>`/ulysses/<text>` | `/things/<title>`<br>`/todoist/<content>`<br>`/omnifocus/<name>`<br>`/due/<title>` | `/telegram/<username>`<br>`/whatsapp/<phone>` | `/twitter/<handle>`<br>`/instagram/<username>` | `/googlemaps/<query>`<br>`/waze/<address>` |
+| Notes | Tasks | People | Places |
+| --- | --- | --- | --- |
+| `/bear/<title>`<br>`/drafts/<text>`<br>`/ulysses/<text>` | `/things/<title>`<br>`/todoist/<content>`<br>`/omnifocus/<name>`<br>`/due/<title>` | `/telegram/<username>`<br>`/whatsapp/<phone>`<br>`/twitter/<handle>`<br>`/instagram/<username>` | `/googlemaps/<query>`<br>`/waze/<address>` |
 
 Three more take something more particular than a title. `/fantastical/<sentence>` parses a natural-language phrase, so `/fantastical/Lunch%20with%20Sam%20tomorrow%201pm` becomes an event. `/shortcuts/<name>` runs a Shortcut by name. `/zoom/<meeting-id>` joins a meeting.
 
-Launchers take no argument at all and just open the app:
+These take no argument at all and just open the app:
 
-| Audio | Chat | Reading |
-| --- | --- | --- |
-| `/music`<br>`/podcasts`<br>`/overcast`<br>`/soundcloud` | `/slack`<br>`/discord` | `/reddit`<br>`/linkedin` |
+| Launchers |
+| --- |
+| `/music`<br>`/podcasts`<br>`/overcast`<br>`/soundcloud`<br>`/slack`<br>`/discord`<br>`/reddit`<br>`/linkedin` |
 
 Because the path is plain and predictable, a language model writes `go.synodic.co/things/Buy%20milk` correctly on the first try. That is the point, since agents are the main callers. The live list renders on the `/` page of any deployment; the single source of truth is `APP_ROUTES` in `src/worker.js`, and adding an app is one entry.
 

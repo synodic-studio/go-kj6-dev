@@ -1,6 +1,6 @@
 # Copy this file to `wrangler.toml` and fill in your own values.
 # `wrangler.toml` itself is gitignored — it carries the project name and
-# (optionally) the KV namespace id used by the /key vault route.
+# (optionally) the KV namespace id used by the /key routes.
 #
 # This deploys as a Cloudflare PAGES project (direct upload, advanced mode:
 # `npm run build` copies src/worker.js -> dist/_worker.js), NOT a Worker.
@@ -10,7 +10,7 @@ name = "patchbay-go"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-12-01"
 
-# Optional. Required only if you want the /key vault route.
+# Optional. Required only if you want the /key routes.
 # Create the namespace with:
 #   npx wrangler kv namespace create VAULT
 # then paste the returned `id` here.

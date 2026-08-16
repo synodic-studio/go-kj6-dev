@@ -2,7 +2,7 @@
 
 Chat apps only linkify web links. Paste `obsidian://open?vault=Notes&file=today.md` into Telegram and it arrives as dead text. Your phone is holding a perfectly good URI it refuses to make tappable.
 
-Patchbay Go is a tiny redirector that fixes that. Send `https://go.synodic.co/obs/Notes/today.md` instead: the chat app linkifies it, the tap opens a browser, and the browser, where custom schemes *are* allowed, hands off to `obsidian://`. One hop, a fraction of a second, and the app opens.
+Patchbay Go is a tiny redirector that fixes that. Send `https://go.synodic.co/obsidian/Notes/today.md` instead: the chat app linkifies it, the tap opens a browser, and the browser, where custom schemes *are* allowed, hands off to `obsidian://`. One hop, a fraction of a second, and the app opens.
 
 ![The deployed landing page, contrasting a dead obsidian:// URI in a chat message with the tappable https link that replaces it](docs/screenshots/landing.png)
 
@@ -13,7 +13,7 @@ This is part of the Patchbay family of small tools that connect a phone chat app
 There is nothing to install and no account to make. **`https://go.synodic.co` is live and open.** Build a URL and send it:
 
 ```
-https://go.synodic.co/obs/MyVault/notes/today.md
+https://go.synodic.co/obsidian/MyVault/notes/today.md
 https://go.synodic.co/things/Buy%20milk
 https://go.synodic.co/cal/2026-03-14
 ```
@@ -37,7 +37,7 @@ The redirect page is the entire user-facing surface of a wrapped link: it flashe
 
 | | | |
 | --- | --- | --- |
-| `/obs/<vault>/<path>` | `/bear/<title>` | `/drafts/<text>` |
+| `/obsidian/<vault>/<path>` | `/bear/<title>` | `/drafts/<text>` |
 | `/ulysses/<text>` | `/things/<title>` | `/todoist/<content>` |
 | `/omnifocus/<name>` | `/due/<title>` | `/remind/<title>` |
 | `/cal/<yyyy-mm-dd>` | `/fantastical/<sentence>` | `/shortcuts/<name>` |
@@ -73,13 +73,29 @@ The second column is the one people miss. Refusing `http:` and `https:` is what 
 
 It is a denylist, matched case-insensitively against the scheme before the first colon, so it is only ever as complete as the browser's own set of privileged schemes. Everything after the scheme is escaped rather than trusted, so a payload that tries to break out of the redirect page cannot.
 
-## The `/key` vault
+## `/key`: handing over a secret
 
 An agent on your machine needs an API key that is on your phone. Pasting it into the chat leaves it in the chat history forever, and every other quick way just picks a different log to leave it in.
 
-`/key` sends you a one-time link instead. You open it, paste the secret into a small labeled form, and the page encrypts it in your browser before anything is sent. The worker stores ciphertext and holds no key that could read it. The agent decrypts on its own machine, where its private key never was anywhere else.
+`/key` passes it instead. The agent asks for a secret and gets back a one-time link. You open it, paste, and the page encrypts in your browser before anything is sent. What travels through this service is ciphertext it has no key to read.
 
-[KEY-VAULT.md](KEY-VAULT.md) has the protocol, the reference client, and the limits.
+```mermaid
+sequenceDiagram
+    participant A as Agent, on your machine
+    participant P as Patchbay Go
+    participant B as Your browser
+    A->>A: Generates a keypair.<br/>The private half never leaves.
+    A->>P: Public key
+    P-->>A: One-time link
+    A-->>B: Sends you the link
+    B->>B: Encrypts the secret<br/>to the agent's public key
+    B->>P: Ciphertext
+    P-->>A: Ciphertext
+    A->>A: Decrypts with the private key
+    Note over P: Only ever holds a public key and<br/>ciphertext. Never a key that opens it.
+```
+
+[SECRET-HANDOFF.md](SECRET-HANDOFF.md) has the protocol, the reference client, and the limits.
 
 ## Agent hosts
 
@@ -89,7 +105,7 @@ Export the URL prefix on the host so agents pick it up:
 export PATCHBAY_URL_WRAPPER="https://go.synodic.co"
 ```
 
-Agent code that builds links reads this prefix and emits `${PATCHBAY_URL_WRAPPER}/obs/<vault>/<path>` instead of raw `obsidian://` URIs.
+Agent code that builds links reads this prefix and emits `${PATCHBAY_URL_WRAPPER}/obsidian/<vault>/<path>` instead of raw `obsidian://` URIs.
 
 ## License
 

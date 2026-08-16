@@ -71,7 +71,7 @@ describe("root route", () => {
     const body = await res.text();
     expect(body).toContain("Patchbay Go");
     expect(body).toContain("synodic.co");
-    expect(body).toContain("/obs/");
+    expect(body).toContain("/obsidian/");
     expect(body).toContain("/remind/");
     expect(body).toContain("/cal/");
     expect(body).toContain("/raw/");
@@ -79,10 +79,10 @@ describe("root route", () => {
   });
 });
 
-describe("/obs/ route", () => {
+describe("/obsidian/ route", () => {
   it("redirects to obsidian:// URI", async () => {
     const res = await worker.fetch(
-      makeRequest("/obs/MyVault/path/to/note"),
+      makeRequest("/obsidian/MyVault/path/to/note"),
       mockEnv(),
     );
     const body = await res.text();
@@ -91,8 +91,20 @@ describe("/obs/ route", () => {
     expect(body).toContain("path%2Fto%2Fnote");
   });
 
+  it("treats /obs/ as an alias for the same route", async () => {
+    const [long, short] = await Promise.all(
+      ["/obsidian/MyVault/note.md", "/obs/MyVault/note.md"].map(async (p) =>
+        (await worker.fetch(makeRequest(p), mockEnv())).text(),
+      ),
+    );
+    expect(short).toBe(long);
+  });
+
   it("errors when missing file path", async () => {
-    const res = await worker.fetch(makeRequest("/obs/JustVault"), mockEnv());
+    const res = await worker.fetch(
+      makeRequest("/obsidian/JustVault"),
+      mockEnv(),
+    );
     expect(res.status).toBe(400);
     const body = await res.text();
     expect(body).toContain("Missing file path");

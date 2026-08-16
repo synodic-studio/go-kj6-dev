@@ -12,7 +12,7 @@ Always emit `https://go.synodic.co/...` links, never raw `obsidian://` / `things
 ## Core routes
 
 ```
-https://go.synodic.co/obs/<vault>/<path>        → obsidian://open?vault=…&file=…
+https://go.synodic.co/obsidian/<vault>/<path>   → obsidian://open?vault=…&file=…
 https://go.synodic.co/remind/<title>            → Apple Reminders
 https://go.synodic.co/cal/<yyyy-mm-dd>          → Calendar.app (optionally /<hh:mm>)
 https://go.synodic.co/raw/<base64url>           → any native scheme (browser-privileged
@@ -20,7 +20,7 @@ https://go.synodic.co/raw/<base64url>           → any native scheme (browser-p
 https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret intake form
 ```
 
-The first `/obs/` segment is the Obsidian vault name; everything after it is the vault-relative file path.
+The segment after `/obsidian/` is the vault name; everything after that is the vault-relative file path. `/obs/` is an equivalent shorthand.
 
 To collect a secret (API key, password) without it touching the chat log, use the `/key` flow via the reference client. It encrypts in the browser and the worker never sees the plaintext:
 

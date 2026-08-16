@@ -7,13 +7,13 @@
  * When the wrapped link is opened, the page redirects into the native app via
  * a meta refresh and JS fallback.
  *
- * Also includes an optional end-to-end encrypted "key vault": a requester
+ * Also includes an optional end-to-end encrypted secret handoff: a requester
  * registers a public key, the browser encrypts the secret against it, and
  * the worker stores only ciphertext, which the requester retrieves and
  * decrypts. The worker never sees the plaintext and never holds a private key.
  *
  * Routes:
- *   /obs/<vault>/<path>       → obsidian://open?vault=<vault>&file=<path>
+ *   /obsidian/<vault>/<path>  → obsidian://open?vault=<vault>&file=<path>
  *   /remind/<title>           → x-apple-reminderkit://REMCDReminder/<title>
  *   /cal/<yyyy-mm-dd>         → calshow:<epoch> (opens Calendar.app)
  *   /raw/<base64url>          → any custom scheme (base64url-encoded)
@@ -214,7 +214,9 @@ export default {
 
     if (path.startsWith("/key/")) {
       if (!env || !env.VAULT) {
-        return errorResponse("Key vault is not configured on this deployment.");
+        return errorResponse(
+          "Secret handoff is not configured on this deployment.",
+        );
       }
       if (path === "/key/register") {
         return handleKeyRegister(request, env);
@@ -226,11 +228,18 @@ export default {
       return handleKeyVault(request, env, path, ctx);
     }
 
-    if (path.startsWith("/obs/")) {
-      const rest = decodeURIComponent(path.slice(5));
+    // `/obsidian/` is the advertised spelling because it is self-explanatory
+    // in a route list; `/obs/` is an unadvertised shorthand for the same thing.
+    const obsidianPrefix = ["/obsidian/", "/obs/"].find((p) =>
+      path.startsWith(p),
+    );
+    if (obsidianPrefix) {
+      const rest = decodeURIComponent(path.slice(obsidianPrefix.length));
       const slashIndex = rest.indexOf("/");
       if (slashIndex === -1) {
-        return errorResponse("Missing file path. Format: /obs/<vault>/<path>");
+        return errorResponse(
+          "Missing file path. Format: /obsidian/<vault>/<path>",
+        );
       }
       const vault = rest.slice(0, slashIndex);
       const file = rest.slice(slashIndex + 1);
@@ -432,12 +441,12 @@ function usagePage(host) {
   <h2>Routes</h2>
   <table>
     <tr><th>Route</th><th>Opens</th></tr>
-    <tr><td><code>/obs/{vault}/{path}</code></td><td>Obsidian note</td></tr>
+    <tr><td><code>/obsidian/{vault}/{path}</code></td><td>Obsidian note</td></tr>
     <tr><td><code>/remind/{title}</code></td><td>Apple Reminders</td></tr>
     <tr><td><code>/cal/{yyyy-mm-dd}</code></td><td>Calendar.app date</td></tr>
     <tr><td><code>/cal/{date}/{hh:mm}</code></td><td>Calendar.app date+time</td></tr>
     <tr><td><code>/raw/{base64url}</code></td><td>Any native app scheme</td></tr>
-    <tr><td><code>/key/{uuid}</code></td><td>Key vault (token-secured, KV-backed)</td></tr>
+    <tr><td><code>/key/{uuid}</code></td><td>Secret handoff (token-secured, KV-backed)</td></tr>
   </table>
   <h2>Popular apps</h2>
   <p>Named shortcuts so you rarely need <code>/raw</code>:</p>
@@ -446,7 +455,7 @@ function usagePage(host) {
     ${appRows}
   </table>
   <h2>Examples</h2>
-  <pre>${h}/obs/MyVault/notes/today.md
+  <pre>${h}/obsidian/MyVault/notes/today.md
 ${h}/remind/Buy%20groceries
 ${h}/cal/2026-03-15
 ${h}/cal/2026-03-15/14:00

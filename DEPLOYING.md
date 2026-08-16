@@ -65,4 +65,4 @@ To exercise `/key` locally, add a local KV namespace:
 npx wrangler pages dev dist --kv VAULT
 ```
 
-The test suite stubs KV entirely, so `npm test` covers the vault routes without any binding.
+The test suite stubs KV entirely, so `npm test` covers the `/key` routes without any binding.

@@ -23,7 +23,7 @@ Or [run your own](DEPLOYING.md), which is one file and a `wrangler` command. The
 Worth knowing before you rely on it:
 
 - **No auth, no logging, no state.** Every route is a pure function of the URL. The only storage anywhere is the optional KV namespace behind `/key`, and that holds ciphertext with a ten-minute TTL.
-- **A wrapped link can only ever open a native app.** `/raw` refuses browser-privileged schemes, `https:` among them, so a link built by someone else cannot run in your browser.
+- **A wrapped link can only ever open a native app.** `/raw` refuses twelve browser-privileged schemes, `https:` among them, so a link built by someone else cannot run in your browser or quietly redirect you somewhere. [The list is short and worth reading.](#what-raw-refuses)
 - **The redirect is not a guarantee the app opens.** If the target app is not installed, you land on the fallback page and nothing happens. There is no error to catch: that is the platform's behavior, not the worker's.
 - **Host-agnostic.** Nothing is hardcoded to a domain; a deployment serves the same routes and advertises its own hostname.
 
@@ -68,6 +68,20 @@ For any scheme not listed, base64url-encode the full URI and use `/raw`:
 ```
 https://go.synodic.co/raw/dGhpbmdzOi8vLw       # → things:///
 ```
+
+### What `/raw` refuses
+
+`/raw` takes a URI from whoever built the link, so it checks the scheme before emitting anything. These twelve are rejected with a 400:
+
+| Runs or reads inside the browser | Never leaves the browser |
+| --- | --- |
+| `javascript:`<br>`vbscript:`<br>`data:`<br>`blob:`<br>`file:`<br>`filesystem:`<br>`about:`<br>`view-source:` | `http:`<br>`https:`<br>`ws:`<br>`wss:` |
+
+The first column is the obvious half: those schemes execute script or read local content, so a wrapped link could do something in your browser rather than hand off to an app.
+
+The second column is the one people miss. Refusing `http:` and `https:` is what keeps `/raw` from being an open redirect. Without it, anyone could publish `go.synodic.co/raw/<base64 of https://evil.example>` and their phishing link would be wearing this domain.
+
+It is a denylist, matched case-insensitively against the scheme before the first colon, so it is only ever as complete as the browser's own set of privileged schemes. Everything after the scheme is escaped rather than trusted, so a payload that tries to break out of the redirect page cannot.
 
 ## `/key`: hand over a secret without putting it in a chat log
 

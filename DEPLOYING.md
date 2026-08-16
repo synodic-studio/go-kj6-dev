@@ -52,6 +52,12 @@ npx wrangler kv namespace create VAULT
 
 Paste the returned `id` into the `[[kv_namespaces]]` block in your `wrangler.toml` and redeploy. Records carry a ten-minute TTL, and retrieval is one-shot. If the binding is absent, `/key/*` returns 400 and every other route works normally.
 
+## Adding an app
+
+`APP_ROUTES` in `src/worker.js` is the single source of truth for the named routes. An app is one entry: the custom-scheme prefix, a label, the name of the value it takes, and a one-line description for the usage page. Set `bare: true` for a launcher that ignores its path tail, or `alias: true` for a spelling that works but stays off the usage page.
+
+Only *custom* schemes belong there. An app that opens from an ordinary https universal link needs no wrapping, because chat apps already make those tappable.
+
 ## Local development
 
 ```bash

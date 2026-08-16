@@ -226,6 +226,29 @@ describe("/raw/ route", () => {
   });
 });
 
+describe("named app routes", () => {
+  it("opens an X profile via /x/", async () => {
+    const res = await worker.fetch(makeRequest("/x/someone"), mockEnv());
+    const body = await res.text();
+    expect(body).toContain("twitter://user?screen_name=someone");
+  });
+
+  it("keeps /twitter/ working as an alias", async () => {
+    const [x, twitter] = await Promise.all(
+      ["/x/someone", "/twitter/someone"].map(async (p) =>
+        (await worker.fetch(makeRequest(p), mockEnv())).text(),
+      ),
+    );
+    expect(twitter).toBe(x);
+  });
+
+  it("leaves alias routes off the usage page", async () => {
+    const body = await (await worker.fetch(makeRequest("/"), mockEnv())).text();
+    expect(body).toContain("<code>/x/{handle}</code>");
+    expect(body).not.toContain("<code>/twitter/{handle}</code>");
+  });
+});
+
 describe("jsStringLiteral", () => {
   it("escapes </script> and & so a value cannot break out of an inline script", () => {
     expect(jsStringLiteral("a</script>b")).toBe('"a\\u003c/script\\u003eb"');

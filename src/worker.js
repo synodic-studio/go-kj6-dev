@@ -37,6 +37,7 @@
  * @property {string} label - Human name shown on the redirect + billboard.
  * @property {string} param - Name of the tail value, for usage hints.
  * @property {string} opens - One-line description of what it opens.
+ * @property {boolean} [alias] - Route works but is left off the usage page.
  */
 
 /**
@@ -105,11 +106,20 @@ const APP_ROUTES = {
     param: "sentence",
     opens: "Fantastical: new event from natural language",
   },
-  twitter: {
+  x: {
+    // The app never registered an `x://` scheme after the rebrand, so the
+    // handoff is still `twitter://`. Only the route name follows the brand.
     prefix: "twitter://user?screen_name=",
-    label: "X (Twitter)",
+    label: "X",
     param: "handle",
     opens: "X: open a profile",
+  },
+  twitter: {
+    prefix: "twitter://user?screen_name=",
+    label: "X",
+    param: "handle",
+    opens: "X: open a profile",
+    alias: true,
   },
   instagram: {
     prefix: "instagram://user?username=",
@@ -394,6 +404,7 @@ function redirectPage(appUri, message) {
 function usagePage(host) {
   const h = escapeHtml(host || "your-domain.example");
   const appRows = Object.entries(APP_ROUTES)
+    .filter(([, route]) => !route.alias)
     .map(([key, route]) => {
       const usage = route.bare
         ? `<code>/${key}</code>`

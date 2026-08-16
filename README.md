@@ -41,7 +41,7 @@ The redirect page is the entire user-facing surface of a wrapped link: it flashe
 | `/ulysses/<text>` | `/things/<title>` | `/todoist/<content>` |
 | `/omnifocus/<name>` | `/due/<title>` | `/remind/<title>` |
 | `/cal/<yyyy-mm-dd>` | `/fantastical/<sentence>` | `/shortcuts/<name>` |
-| `/telegram/<username>` | `/whatsapp/<phone>` | `/twitter/<handle>` |
+| `/telegram/<username>` | `/whatsapp/<phone>` | `/x/<handle>` |
 | `/instagram/<username>` | `/googlemaps/<query>` | `/waze/<address>` |
 | `/zoom/<meeting-id>` | `/raw/<base64url>` | `/key/<uuid>` |
 | `/music` | `/podcasts` | `/overcast` |
@@ -56,8 +56,6 @@ Four are worth a word:
 - `/fantastical/` takes plain language, so `/fantastical/Lunch%20with%20Sam%201pm` becomes an event.
 - `/raw/` takes the base64url of an entire URI, for any scheme with no named route.
 - `/key/` is the encrypted paste form, and `/` on its own is the usage page for whichever deployment you are on.
-
-`APP_ROUTES` in `src/worker.js` is the source of truth, and adding an app is one entry there.
 
 ### What `/raw` refuses
 

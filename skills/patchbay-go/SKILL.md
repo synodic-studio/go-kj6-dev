@@ -38,7 +38,7 @@ Content routes take one free-text value (URI-encoded automatically):
 /bear/<title>            /drafts/<text>         /ulysses/<text>
 /fantastical/<sentence>  (natural language, e.g. "Lunch with Sam tomorrow 1pm")
 /shortcuts/<name>        (run a Shortcut by name)
-/twitter/<handle>        /instagram/<username>  /telegram/<username>  /whatsapp/<phone>
+/x/<handle>               /instagram/<username>  /telegram/<username>  /whatsapp/<phone>
 /googlemaps/<query>      /waze/<address>        /zoom/<meeting-id>
 ```
 

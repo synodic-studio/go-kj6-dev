@@ -20,7 +20,7 @@ https://go.synodic.co/raw/<base64url>           → any native scheme (browser-p
 https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret intake form
 ```
 
-For Cobalt (the Obsidian vault) the first `/obs/` segment is always `Cobalt` — see the `cobalt-links` skill for vault-specific path rules.
+The first `/obs/` segment is the Obsidian vault name; everything after it is the vault-relative file path.
 
 To collect a secret (API key, password) from a phone without it touching the chat log, use the `/key` flow via the reference client — it encrypts in the browser and the worker never sees the plaintext:
 
@@ -54,5 +54,4 @@ Note: a named route with a wrong or stale scheme prefix produces a link that red
 
 ## Notes
 
-- `go.kj6.dev` is the old host; it 301-redirects to `go.synodic.co`, so old links keep working, but always generate new links on `go.synodic.co`.
 - The redirect page is sub-second; the user never really sees it. The bare `/` page is a Synodic Studio billboard.

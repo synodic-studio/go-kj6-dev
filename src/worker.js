@@ -551,10 +551,9 @@ async function handleKeyVault(request, env, path, ctx) {
     return errorResponse("Missing token.");
   }
 
-  // Only the end-to-end path exists: the token must carry the requester's
-  // public key so the secret is encrypted in the browser and this worker
-  // only ever stores ciphertext (see handleKeyRegister). There is no
-  // plaintext flow.
+  // The token must carry the requester's public key: the secret is encrypted
+  // in the browser, so this worker only ever stores ciphertext (see
+  // handleKeyRegister).
   const raw = await env.VAULT.get(`token:${token}`);
   const record = raw ? parseTokenRecord(raw) : null;
   if (!record || !record.publicKey) {
@@ -564,8 +563,8 @@ async function handleKeyVault(request, env, path, ctx) {
 }
 
 /**
- * Parse a token KV value. E2E tokens are JSON `{label, publicKey, webhook,
- * secret}`; the legacy same-owner flow stores a bare key-name string.
+ * Parse a token KV value. A token is JSON `{label, publicKey, webhook,
+ * secret}`; anything without a `publicKey` is not a usable token.
  * @param {string} raw
  * @returns {?{label:string, publicKey:string, webhook:?string, secret:string}}
  */
@@ -581,7 +580,7 @@ function parseTokenRecord(raw) {
 /**
  * POST /key/register — an agent's opening handshake. It supplies a label, its
  * RSA-OAEP public key, and an optional https webhook; no secret exists yet.
- * The key is imported and REQUIRED, so there is no plaintext mode on this path.
+ * The public key is required and is imported here to validate it.
  * @param {Request} request
  * @param {Env} env
  * @returns {Promise<Response>}

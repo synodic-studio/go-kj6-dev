@@ -322,12 +322,12 @@ describe("named app routes", () => {
 describe("legacy host redirect", () => {
   it("301-redirects go.kj6.dev to go.synodic.co, preserving path + query", async () => {
     const res = await worker.fetch(
-      new Request("https://go.kj6.dev/obs/Cobalt/05-Fanta/note.md?x=1"),
+      new Request("https://go.kj6.dev/obs/Notes/journal/note.md?x=1"),
       mockEnv(),
     );
     expect(res.status).toBe(301);
     expect(res.headers.get("Location")).toBe(
-      "https://go.synodic.co/obs/Cobalt/05-Fanta/note.md?x=1",
+      "https://go.synodic.co/obs/Notes/journal/note.md?x=1",
     );
   });
 

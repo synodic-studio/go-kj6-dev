@@ -27,7 +27,7 @@ Worth knowing before you rely on it:
 - **The redirect is not a guarantee the app opens.** If the target app is not installed, you land on the fallback page and nothing happens. There is no error to catch: that is the platform's behavior, not the worker's.
 - **Host-agnostic.** Nothing is hardcoded to a domain; a deployment serves the same routes and advertises its own hostname.
 
-## What a tap looks like
+## Screenshots
 
 The redirect page is the entire user-facing surface of a wrapped link: it flashes by on the way into the app, and only lingers if the app is not installed. The `/key` form is the one page that asks for input.
 
@@ -83,15 +83,15 @@ The second column is the one people miss. Refusing `http:` and `https:` is what 
 
 It is a denylist, matched case-insensitively against the scheme before the first colon, so it is only ever as complete as the browser's own set of privileged schemes. Everything after the scheme is escaped rather than trusted, so a payload that tries to break out of the redirect page cannot.
 
-## `/key`: hand over a secret without putting it in a chat log
+## The `/key` vault
 
 An agent on your machine needs an API key that is on your phone. Pasting it into the chat leaves it in the chat history forever, and every other quick way just picks a different log to leave it in.
 
 `/key` sends you a one-time link instead. You open it, paste the secret into a small labeled form, and the page encrypts it in your browser before anything is sent. The worker stores ciphertext and holds no key that could read it. The agent decrypts on its own machine, where its private key never was anywhere else.
 
-Full protocol, reference client, and the honest limits are in [KEY-VAULT.md](KEY-VAULT.md).
+[KEY-VAULT.md](KEY-VAULT.md) has the protocol, the reference client, and the limits.
 
-## Pointing a Patchbay host at your domain
+## Agent hosts
 
 Export the URL prefix on the host so agents pick it up:
 

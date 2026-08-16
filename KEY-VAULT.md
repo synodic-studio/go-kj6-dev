@@ -42,7 +42,7 @@ uv run clients/patchbay_key.py fetch my-service      # decrypts into `pass`
 
 These are the only routes that need storage, so they are the only ones that need a KV namespace bound. See [Enabling `/key`](DEPLOYING.md#enabling-key) in the deployment guide. Without the binding, `/key/*` returns 400 and every other route works normally.
 
-## What this does not protect against
+## Limits
 
 The link is a bearer token for ten minutes. Anyone who intercepts it in that window can submit a secret of their choosing, which means the requester can be fed a wrong value, though never made to leak the right one.
 

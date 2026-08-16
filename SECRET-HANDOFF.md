@@ -1,4 +1,4 @@
-# Handing over a secret
+# Handing over a secret with zero knowledge
 
 An agent needs an API key that only you have. Every obvious way to move it is bad: pasting it into the chat puts it in the chat history forever, and mailing it to yourself just picks a different log to leave it in. `/key` is a way to hand the secret over without any intermediary ever being able to read it, including the worker doing the handing.
 

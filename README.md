@@ -71,11 +71,11 @@ The second column is the one people miss. Refusing `http:` and `https:` is what 
 
 It is a denylist, matched case-insensitively against the scheme before the first colon, so it is only ever as complete as the browser's own set of privileged schemes. Everything after the scheme is escaped rather than trusted, so a payload that tries to break out of the redirect page cannot.
 
-## `/key`: handing over a secret
+## `/key`: handing over a secret with zero knowledge
 
 An agent needs an API key that only you have. Pasting it into the chat leaves it in the chat history forever, and every other quick way just picks a different log to leave it in.
 
-`/key` passes it instead. The agent asks for a secret and gets back a one-time link. You open it, paste, and the page encrypts in your browser before anything is sent. What travels through this service is ciphertext it has no key to read.
+`/key` passes it instead. The agent asks for a secret and gets back a one-time link. You open it, paste, and the page encrypts in your browser before anything is sent. This service is oblivious by construction: it only ever holds ciphertext, it holds no key that opens it, and there is no setting that could change that.
 
 ```mermaid
 sequenceDiagram

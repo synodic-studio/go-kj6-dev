@@ -1,13 +1,13 @@
 # Handing over a secret
 
-An agent running on your machine needs an API key that is sitting on your phone. Every obvious way to move it is bad: pasting it into the chat puts it in the chat history forever, and mailing it to yourself just picks a different log to leave it in. `/key` is a way to hand the secret over without any intermediary ever being able to read it, including the worker doing the handing.
+An agent needs an API key that only you have. Every obvious way to move it is bad: pasting it into the chat puts it in the chat history forever, and mailing it to yourself just picks a different log to leave it in. `/key` is a way to hand the secret over without any intermediary ever being able to read it, including the worker doing the handing.
 
 ```mermaid
 sequenceDiagram
-    participant A as Agent, on your machine
+    participant A as Agent
     participant P as Patchbay Go
     participant B as Your browser
-    A->>A: Generates a keypair.<br/>The private half never leaves.
+    A->>A: Generates a keypair.<br/>The private half never leaves it.
     A->>P: Public key
     P-->>A: One-time link
     A-->>B: Sends you the link

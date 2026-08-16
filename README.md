@@ -75,16 +75,16 @@ It is a denylist, matched case-insensitively against the scheme before the first
 
 ## `/key`: handing over a secret
 
-An agent on your machine needs an API key that is on your phone. Pasting it into the chat leaves it in the chat history forever, and every other quick way just picks a different log to leave it in.
+An agent needs an API key that only you have. Pasting it into the chat leaves it in the chat history forever, and every other quick way just picks a different log to leave it in.
 
 `/key` passes it instead. The agent asks for a secret and gets back a one-time link. You open it, paste, and the page encrypts in your browser before anything is sent. What travels through this service is ciphertext it has no key to read.
 
 ```mermaid
 sequenceDiagram
-    participant A as Agent, on your machine
+    participant A as Agent
     participant P as Patchbay Go
     participant B as Your browser
-    A->>A: Generates a keypair.<br/>The private half never leaves.
+    A->>A: Generates a keypair.<br/>The private half never leaves it.
     A->>P: Public key
     P-->>A: One-time link
     A-->>B: Sends you the link

@@ -8,7 +8,7 @@
  * a meta refresh and JS fallback.
  *
  * Also includes an optional end-to-end encrypted "key vault": a requester
- * registers a public key, the phone encrypts the secret in the browser, and
+ * registers a public key, the browser encrypts the secret against it, and
  * the worker stores only ciphertext, which the requester retrieves and
  * decrypts. The worker never sees the plaintext and never holds a private key.
  *

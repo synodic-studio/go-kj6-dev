@@ -74,7 +74,7 @@ https://go.synodic.co/raw/dGhpbmdzOi8vLw       # → things:///
 
 An agent needs your API key. Pasting it into the chat means it lives in the chat history, on a server, forever. `/key` is the way around that.
 
-The agent generates a keypair and registers its **public** key, which yields a one-time `https://<host>/key/<uuid>` link. You tap it, paste the secret into the form, and the page encrypts it *in your browser* — AES-GCM, wrapped to the agent's RSA-OAEP key — before anything is sent. The worker only ever stores ciphertext and never holds a key that could read it. The agent fetches the envelope and decrypts it on its own machine, where its private key never left.
+The agent generates a keypair and registers its **public** key, which yields a one-time `https://<host>/key/<uuid>` link. You open it, paste the secret into the form, and the page encrypts it *in your browser* — AES-GCM, wrapped to the agent's RSA-OAEP key — before anything is sent. The worker only ever stores ciphertext and never holds a key that could read it. The agent fetches the envelope and decrypts it on its own machine, where its private key never left.
 
 ```
 POST /key/register  {label, publicKey, webhook?}  -> {uuid, secret, url}

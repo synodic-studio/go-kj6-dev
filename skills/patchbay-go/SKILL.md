@@ -22,7 +22,7 @@ https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret 
 
 The first `/obs/` segment is the Obsidian vault name; everything after it is the vault-relative file path.
 
-To collect a secret (API key, password) from a phone without it touching the chat log, use the `/key` flow via the reference client — it encrypts in the browser and the worker never sees the plaintext:
+To collect a secret (API key, password) without it touching the chat log, use the `/key` flow via the reference client — it encrypts in the browser and the worker never sees the plaintext:
 
 ```
 uv run <patchbay-go>/clients/patchbay_key.py register <service>   # prints the link

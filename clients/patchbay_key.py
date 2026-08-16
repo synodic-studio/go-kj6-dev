@@ -5,10 +5,9 @@
 # ///
 """Patchbay Go — end-to-end secret intake client.
 
-Move a secret (API key, password, OTP) from a phone into an agent without it
-ever touching a chat log — and without the go.synodic.co worker ever seeing the
-plaintext. The worker only stores ciphertext; the private key never leaves this
-machine.
+Move a secret (API key, password, OTP) into an agent without it ever touching a
+chat log — and without the worker ever seeing the plaintext. The worker only
+stores ciphertext; the private key never leaves this machine.
 
     patchbay_key.py register <service> [--webhook URL]
         Generate a keypair, register the request, print the tappable link.

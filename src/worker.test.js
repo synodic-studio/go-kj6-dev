@@ -179,7 +179,7 @@ describe("/raw/ route", () => {
     expect(body).toContain("Refused");
   });
 
-  it("refuses http(s): open redirect", async () => {
+  it("refuses https: open redirect", async () => {
     const res = await worker.fetch(
       makeRequest(`/raw/${b64url("https://evil.example")}`),
       mockEnv(),

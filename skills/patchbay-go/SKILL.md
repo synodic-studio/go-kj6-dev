@@ -16,7 +16,7 @@ https://go.synodic.co/obs/<vault>/<path>        → obsidian://open?vault=…&fi
 https://go.synodic.co/remind/<title>            → Apple Reminders
 https://go.synodic.co/cal/<yyyy-mm-dd>          → Calendar.app (optionally /<hh:mm>)
 https://go.synodic.co/raw/<base64url>           → any native scheme (browser-privileged
-                                                   schemes like javascript:/http(s): refused)
+                                                   schemes like javascript: or https: refused)
 https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret intake form
 ```
 

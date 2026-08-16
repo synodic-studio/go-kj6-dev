@@ -35,38 +35,38 @@ The redirect page is the entire user-facing surface of a wrapped link: it flashe
 
 ## Routes
 
-| Route | Redirects to |
+| Route | Opens |
 | --- | --- |
-| `/obs/<vault>/<path>` | `obsidian://open?vault=<vault>&file=<path>` |
-| `/remind/<title>` | `x-apple-reminderkit://REMCDReminder/<title>` |
-| `/cal/<yyyy-mm-dd>` | `calshow:<epoch>` (Calendar.app) |
-| `/cal/<yyyy-mm-dd>/<hh:mm>` | `calshow:<epoch>` at a specific time |
-| `/raw/<base64url>` | Any **native** custom scheme (base64url-encoded full URI). Browser-privileged schemes are refused. |
-| `/key/<uuid>` | Token-secured paste form (KV-backed, optional) |
-| `/` | Usage page (renders the deployed hostname automatically) |
+| `/obs/<vault>/<path>` | A note in Obsidian |
+| `/remind/<title>` | A new reminder in Apple Reminders |
+| `/cal/<yyyy-mm-dd>` | Calendar.app on that date. Add `/<hh:mm>` for a time |
+| `/things/<title>` | A quick-add to-do in Things |
+| `/todoist/<content>` | A new task in Todoist |
+| `/omnifocus/<name>` | A new task in OmniFocus |
+| `/due/<title>` | A new reminder in Due |
+| `/bear/<title>` | A new note in Bear |
+| `/drafts/<text>` | A new draft in Drafts |
+| `/ulysses/<text>` | A new sheet in Ulysses |
+| `/fantastical/<sentence>` | An event parsed from plain language, like `Lunch with Sam 1pm` |
+| `/shortcuts/<name>` | A Shortcut, run by name |
+| `/zoom/<meeting-id>` | A Zoom meeting |
+| `/telegram/<username>` | A Telegram user or channel |
+| `/whatsapp/<phone>` | A WhatsApp chat with a number |
+| `/twitter/<handle>` | An X profile |
+| `/instagram/<username>` | An Instagram profile |
+| `/googlemaps/<query>` | A place in Google Maps |
+| `/waze/<address>` | Navigation to an address in Waze |
+| `/music` `/podcasts` `/overcast` `/soundcloud`<br>`/slack` `/discord` `/reddit` `/linkedin` | Just the app. These take no argument |
+| `/raw/<base64url>` | Any other native scheme, base64url-encoded |
+| `/key/<uuid>` | The encrypted paste form |
+| `/` | The usage page, listing all of this for the deployment you are on |
 
-### Popular app routes
+Every value is URI-encoded for you, so `/things/Buy%20milk` is all a caller has to write. That predictability is the point: a language model gets these right on the first try, and agents are the main callers. `APP_ROUTES` in `src/worker.js` is the source of truth, and adding an app is one entry there.
 
-Common apps get named routes, so callers rarely need `/raw`. Each takes a single free-text value, URI-encoded for you.
-
-| Notes | Tasks | People | Places |
-| --- | --- | --- | --- |
-| `/bear/<title>`<br>`/drafts/<text>`<br>`/ulysses/<text>` | `/things/<title>`<br>`/todoist/<content>`<br>`/omnifocus/<name>`<br>`/due/<title>` | `/telegram/<username>`<br>`/whatsapp/<phone>`<br>`/twitter/<handle>`<br>`/instagram/<username>` | `/googlemaps/<query>`<br>`/waze/<address>` |
-
-Three more take something more particular than a title. `/fantastical/<sentence>` parses a natural-language phrase, so `/fantastical/Lunch%20with%20Sam%20tomorrow%201pm` becomes an event. `/shortcuts/<name>` runs a Shortcut by name. `/zoom/<meeting-id>` joins a meeting.
-
-These take no argument at all and just open the app:
-
-| Launchers |
-| --- |
-| `/music`<br>`/podcasts`<br>`/overcast`<br>`/soundcloud`<br>`/slack`<br>`/discord`<br>`/reddit`<br>`/linkedin` |
-
-Because the path is plain and predictable, a language model writes `go.synodic.co/things/Buy%20milk` correctly on the first try. That is the point, since agents are the main callers. The live list renders on the `/` page of any deployment; the single source of truth is `APP_ROUTES` in `src/worker.js`, and adding an app is one entry.
-
-For any scheme not listed, base64url-encode the full URI and use `/raw`:
+For a scheme with no named route, base64url-encode the whole URI:
 
 ```
-https://go.synodic.co/raw/dGhpbmdzOi8vLw       # → things:///
+https://go.synodic.co/raw/dGhpbmdzOi8vLw       # opens things:///
 ```
 
 ### What `/raw` refuses

@@ -35,39 +35,29 @@ The redirect page is the entire user-facing surface of a wrapped link: it flashe
 
 ## Routes
 
-| Route | Opens |
-| --- | --- |
-| `/obs/<vault>/<path>` | A note in Obsidian |
-| `/remind/<title>` | A new reminder in Apple Reminders |
-| `/cal/<yyyy-mm-dd>` | Calendar.app on that date. Add `/<hh:mm>` for a time |
-| `/things/<title>` | A quick-add to-do in Things |
-| `/todoist/<content>` | A new task in Todoist |
-| `/omnifocus/<name>` | A new task in OmniFocus |
-| `/due/<title>` | A new reminder in Due |
-| `/bear/<title>` | A new note in Bear |
-| `/drafts/<text>` | A new draft in Drafts |
-| `/ulysses/<text>` | A new sheet in Ulysses |
-| `/fantastical/<sentence>` | An event parsed from plain language, like `Lunch with Sam 1pm` |
-| `/shortcuts/<name>` | A Shortcut, run by name |
-| `/zoom/<meeting-id>` | A Zoom meeting |
-| `/telegram/<username>` | A Telegram user or channel |
-| `/whatsapp/<phone>` | A WhatsApp chat with a number |
-| `/twitter/<handle>` | An X profile |
-| `/instagram/<username>` | An Instagram profile |
-| `/googlemaps/<query>` | A place in Google Maps |
-| `/waze/<address>` | Navigation to an address in Waze |
-| `/music` `/podcasts` `/overcast` `/soundcloud`<br>`/slack` `/discord` `/reddit` `/linkedin` | Just the app. These take no argument |
-| `/raw/<base64url>` | Any other native scheme, base64url-encoded |
-| `/key/<uuid>` | The encrypted paste form |
-| `/` | The usage page, listing all of this for the deployment you are on |
+| | | |
+| --- | --- | --- |
+| `/obs/<vault>/<path>` | `/bear/<title>` | `/drafts/<text>` |
+| `/ulysses/<text>` | `/things/<title>` | `/todoist/<content>` |
+| `/omnifocus/<name>` | `/due/<title>` | `/remind/<title>` |
+| `/cal/<yyyy-mm-dd>` | `/fantastical/<sentence>` | `/shortcuts/<name>` |
+| `/telegram/<username>` | `/whatsapp/<phone>` | `/twitter/<handle>` |
+| `/instagram/<username>` | `/googlemaps/<query>` | `/waze/<address>` |
+| `/zoom/<meeting-id>` | `/raw/<base64url>` | `/key/<uuid>` |
+| `/music` | `/podcasts` | `/overcast` |
+| `/soundcloud` | `/slack` | `/discord` |
+| `/reddit` | `/linkedin` | |
 
-Every value is URI-encoded for you, so `/things/Buy%20milk` is all a caller has to write. That predictability is the point: a language model gets these right on the first try, and agents are the main callers. `APP_ROUTES` in `src/worker.js` is the source of truth, and adding an app is one entry there.
+The value is URI-encoded for you, so `/things/Buy%20milk` is all a caller writes. The eight one-word routes take no value at all; they just open the app.
 
-For a scheme with no named route, base64url-encode the whole URI:
+Four are worth a word:
 
-```
-https://go.synodic.co/raw/dGhpbmdzOi8vLw       # opens things:///
-```
+- `/cal/` takes a date and optionally a time, as `/cal/2026-03-14/09:30`.
+- `/fantastical/` takes plain language, so `/fantastical/Lunch%20with%20Sam%201pm` becomes an event.
+- `/raw/` takes the base64url of an entire URI, for any scheme with no named route.
+- `/key/` is the encrypted paste form, and `/` on its own is the usage page for whichever deployment you are on.
+
+`APP_ROUTES` in `src/worker.js` is the source of truth, and adding an app is one entry there.
 
 ### What `/raw` refuses
 

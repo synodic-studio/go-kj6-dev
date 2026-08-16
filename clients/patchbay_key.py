@@ -3,10 +3,10 @@
 # requires-python = ">=3.11"
 # dependencies = ["cryptography>=42", "certifi"]
 # ///
-"""Patchbay Go — end-to-end secret intake client.
+"""Patchbay Go: end-to-end secret intake client.
 
 Move a secret (API key, password, OTP) into an agent without it ever touching a
-chat log — and without the worker ever seeing the plaintext. The worker only
+chat log, and without the worker ever seeing the plaintext. The worker only
 stores ciphertext; the private key never leaves this machine.
 
     patchbay_key.py register <service> [--webhook URL]

@@ -1,8 +1,8 @@
 # Patchbay Go
 
-Chat apps only linkify `http(s)`. Paste `obsidian://open?vault=Notes&file=today.md` into Telegram and it arrives as dead text — your phone is holding a perfectly good URI it refuses to make tappable.
+Chat apps only linkify `http(s)`. Paste `obsidian://open?vault=Notes&file=today.md` into Telegram and it arrives as dead text. Your phone is holding a perfectly good URI it refuses to make tappable.
 
-Patchbay Go is a tiny redirector that fixes that. Send `https://go.synodic.co/obs/Notes/today.md` instead: the chat app linkifies it, the tap opens a browser, and the browser — where custom schemes *are* allowed — hands off to `obsidian://`. One hop, a fraction of a second, and the app opens.
+Patchbay Go is a tiny redirector that fixes that. Send `https://go.synodic.co/obs/Notes/today.md` instead: the chat app linkifies it, the tap opens a browser, and the browser, where custom schemes *are* allowed, hands off to `obsidian://`. One hop, a fraction of a second, and the app opens.
 
 ![The deployed landing page, contrasting a dead obsidian:// URI in a chat message with the tappable https link that replaces it](docs/screenshots/landing.png)
 
@@ -10,7 +10,7 @@ This is part of the [Patchbay](https://github.com/synodic-studio/patchbay-relay)
 
 ## Use it
 
-There is nothing to install and no account to make. **`https://go.synodic.co` is live and open** — build a URL and send it:
+There is nothing to install and no account to make. **`https://go.synodic.co` is live and open.** Build a URL and send it:
 
 ```
 https://go.synodic.co/obs/MyVault/notes/today.md
@@ -18,23 +18,20 @@ https://go.synodic.co/things/Buy%20milk
 https://go.synodic.co/cal/2026-03-14
 ```
 
-It is offered as-is, on a free tier, with no uptime promise. If you would rather not depend on someone else's host — or you want the `/key` vault, which stores data — [deploy your own](DEPLOYING.md). It is one file and a `wrangler` command.
+Or [run your own](DEPLOYING.md), which is one file and a `wrangler` command. Then the domain is yours, the link prefix is yours, and the `/key` ciphertext sits in your own KV namespace instead of someone else's.
 
 Worth knowing before you rely on it:
 
 - **No auth, no logging, no state.** Every route is a pure function of the URL. The only storage anywhere is the optional KV namespace behind `/key`, and that holds ciphertext with a ten-minute TTL.
 - **A wrapped link can only ever open a native app.** `/raw` refuses browser-privileged schemes (`javascript:`, `data:`, `http(s):`, …), so a link built by someone else cannot run in your browser.
-- **The redirect is not a guarantee the app opens.** If the target app is not installed, you land on the fallback page and nothing happens. There is no error to catch — that is the platform's behavior, not the worker's.
+- **The redirect is not a guarantee the app opens.** If the target app is not installed, you land on the fallback page and nothing happens. There is no error to catch: that is the platform's behavior, not the worker's.
 - **Host-agnostic.** Nothing is hardcoded to a domain; a deployment serves the same routes and advertises its own hostname.
 
 ## What a tap looks like
 
 The redirect page is the entire user-facing surface of a wrapped link: it flashes by on the way into the app, and only lingers if the app is not installed. The `/key` form is the one page that asks for input.
 
-<p>
-  <img src="docs/screenshots/redirect.png" alt="The redirect page: a spinner over the text &quot;Opening today.md in Obsidian&quot;, with a manual tap-through link below it" width="340">
-  <img src="docs/screenshots/key-form.png" alt="The /key paste form: a labeled field reading &quot;OpenAI API key&quot;, a paste box, and an &quot;Encrypt &amp; send&quot; button" width="340">
-</p>
+![The redirect page: a spinner over the text "Opening today.md in Obsidian", with a manual tap-through link below it](docs/screenshots/redirect.png) ![The /key paste form: a labeled field reading "OpenAI API key", a paste box, and an "Encrypt & send" button](docs/screenshots/key-form.png)
 
 ## Routes
 
@@ -62,7 +59,7 @@ Common apps get named routes, so callers rarely need `/raw`. Content routes take
 
 Launchers take no argument and just open the app: `/music`, `/podcasts`, `/overcast`, `/soundcloud`, `/slack`, `/discord`, `/reddit`, `/linkedin`.
 
-Because the path is plain and predictable, a language model writes `go.synodic.co/things/Buy%20milk` correctly on the first try — which is the point, since agents are the main callers. The live list renders on the `/` page of any deployment; the single source of truth is `APP_ROUTES` in `src/worker.js`, and adding an app is one entry.
+Because the path is plain and predictable, a language model writes `go.synodic.co/things/Buy%20milk` correctly on the first try. That is the point, since agents are the main callers. The live list renders on the `/` page of any deployment; the single source of truth is `APP_ROUTES` in `src/worker.js`, and adding an app is one entry.
 
 For any scheme not listed, base64url-encode the full URI and use `/raw`:
 
@@ -74,7 +71,7 @@ https://go.synodic.co/raw/dGhpbmdzOi8vLw       # → things:///
 
 An agent needs your API key. Pasting it into the chat means it lives in the chat history, on a server, forever. `/key` is the way around that.
 
-The agent generates a keypair and registers its **public** key, which yields a one-time `https://<host>/key/<uuid>` link. You open it, paste the secret into the form, and the page encrypts it *in your browser* — AES-GCM, wrapped to the agent's RSA-OAEP key — before anything is sent. The worker only ever stores ciphertext and never holds a key that could read it. The agent fetches the envelope and decrypts it on its own machine, where its private key never left.
+The agent generates a keypair and registers its **public** key, which yields a one-time `https://<host>/key/<uuid>` link. You open it, paste the secret into the form, and the page encrypts it *in your browser* (AES-GCM, wrapped to the agent's RSA-OAEP key) before anything is sent. The worker only ever stores ciphertext and never holds a key that could read it. The agent fetches the envelope and decrypts it on its own machine, where its private key never left.
 
 ```
 POST /key/register  {label, publicKey, webhook?}  -> {uuid, secret, url}
@@ -90,7 +87,7 @@ uv run clients/patchbay_key.py register my-service   # prints the tappable link
 uv run clients/patchbay_key.py fetch my-service      # decrypts into `pass`
 ```
 
-These routes are the only part that needs storage, so they only work on a deployment with a KV namespace bound — see [DEPLOYING.md](DEPLOYING.md). Without the binding, `/key/*` returns 400 and every other route still works.
+These routes are the only part that needs storage, so they only work on a deployment with a KV namespace bound; see [DEPLOYING.md](DEPLOYING.md). Without the binding, `/key/*` returns 400 and every other route still works.
 
 ## Pointing a Patchbay host at your domain
 

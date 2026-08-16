@@ -22,7 +22,7 @@ https://go.synodic.co/key/<uuid>                → end-to-end encrypted secret 
 
 The first `/obs/` segment is the Obsidian vault name; everything after it is the vault-relative file path.
 
-To collect a secret (API key, password) without it touching the chat log, use the `/key` flow via the reference client — it encrypts in the browser and the worker never sees the plaintext:
+To collect a secret (API key, password) without it touching the chat log, use the `/key` flow via the reference client. It encrypts in the browser and the worker never sees the plaintext:
 
 ```
 uv run <patchbay-go>/clients/patchbay_key.py register <service>   # prints the link
@@ -50,7 +50,7 @@ Launchers (just open the app, no argument):
 
 The live, authoritative list renders on `https://go.synodic.co/` (single source of truth is `APP_ROUTES` in the patchbay-go worker). For any scheme not covered, base64url-encode the full URI and use `/raw/<base64url>`.
 
-Note: a named route with a wrong or stale scheme prefix produces a link that redirects but silently opens nothing — no error. If an app doesn't open, fall back to `/raw` with the correct scheme.
+Note: a named route with a wrong or stale scheme prefix produces a link that redirects but silently opens nothing, with no error. If an app doesn't open, fall back to `/raw` with the correct scheme.
 
 ## Notes
 

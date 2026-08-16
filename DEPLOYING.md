@@ -1,8 +1,8 @@
 # Deploying your own
 
-`https://go.synodic.co` is open to use as-is, but it is one person's free-tier deployment. Run your own if you want a domain you control, or if you want the `/key` vault, which is the only part that stores anything.
+Running your own gets you the domain and the data: your Cloudflare account, your link prefix, your KV namespace. Nothing routes through anyone else's host, which matters most for `/key`, the one route that stores anything.
 
-Patchbay Go runs as a **Cloudflare Pages** project in direct-upload advanced mode: the build step copies `src/worker.js` to `dist/_worker.js`, and Pages runs it as the function in front of the static assets. It is not a Workers deployment, and the distinction matters for `wrangler.toml` — a Workers-shaped config will fail here.
+Patchbay Go runs as a **Cloudflare Pages** project in direct-upload advanced mode: the build step copies `src/worker.js` to `dist/_worker.js`, and Pages runs it as the function in front of the static assets. It is not a Workers deployment, and the distinction matters for `wrangler.toml`. A Workers-shaped config will fail here.
 
 You need a Cloudflare account and the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
 
@@ -14,7 +14,7 @@ cp wrangler.example.toml wrangler.toml   # edit the project name to taste
 npm run deploy                           # build + wrangler pages deploy dist
 ```
 
-`npm run deploy` runs `wrangler pages deploy dist --project-name <name> --branch main`. The first deploy gives you `https://<name>.pages.dev`, which already works — every route is live on it.
+`npm run deploy` runs `wrangler pages deploy dist --project-name <name> --branch main`. The first deploy gives you `https://<name>.pages.dev`, which already works. Every route is live on it.
 
 `wrangler.toml` is gitignored, because the project name and KV namespace id are environment state rather than source. `wrangler.example.toml` is the template.
 
@@ -30,7 +30,7 @@ The token needs **Cloudflare Pages: Edit**. If you also attach a custom domain, 
 
 ## A short custom domain
 
-Strongly recommended — the whole point is a link that looks harmless in a chat, and `go.example.com/obs/…` reads better than a `pages.dev` subdomain. Attach the domain to the Pages project, then point DNS at it:
+Strongly recommended: the whole point is a link that looks harmless in a chat, and `go.example.com/obs/…` reads better than a `pages.dev` subdomain. Attach the domain to the Pages project, then point DNS at it:
 
 ```bash
 curl -H "Authorization: Bearer $CF_TOKEN" -X POST \

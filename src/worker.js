@@ -42,7 +42,7 @@
 /**
  * Named routes for popular apps so callers rarely need /raw. Each maps a short
  * path segment to a custom-scheme prefix; `/things/Buy%20milk` becomes
- * `things:///add?title=Buy%20milk`. Only *custom* schemes belong here — apps
+ * `things:///add?title=Buy%20milk`. Only *custom* schemes belong here; apps
  * that open via an https universal link (Maps, Spotify web, ...) need no
  * wrapping. Routes are safe by construction (fixed prefix + encoded tail), so
  * they skip the isSafeScheme check that /raw needs.
@@ -55,97 +55,97 @@ const APP_ROUTES = {
     prefix: "things:///add?title=",
     label: "Things",
     param: "title",
-    opens: "Things — quick-add a to-do",
+    opens: "Things: quick-add a to-do",
   },
   shortcuts: {
     prefix: "shortcuts://run-shortcut?name=",
     label: "Shortcuts",
     param: "name",
-    opens: "Shortcuts — run a shortcut by name",
+    opens: "Shortcuts: run a shortcut by name",
   },
   bear: {
     prefix: "bear://x-callback-url/create?title=",
     label: "Bear",
     param: "title",
-    opens: "Bear — new note",
+    opens: "Bear: new note",
   },
   drafts: {
     prefix: "drafts://x-callback-url/create?text=",
     label: "Drafts",
     param: "text",
-    opens: "Drafts — new draft",
+    opens: "Drafts: new draft",
   },
   ulysses: {
     prefix: "ulysses://x-callback-url/new-sheet?text=",
     label: "Ulysses",
     param: "text",
-    opens: "Ulysses — new sheet",
+    opens: "Ulysses: new sheet",
   },
   todoist: {
     prefix: "todoist://addtask?content=",
     label: "Todoist",
     param: "content",
-    opens: "Todoist — add a task",
+    opens: "Todoist: add a task",
   },
   omnifocus: {
     prefix: "omnifocus:///add?name=",
     label: "OmniFocus",
     param: "name",
-    opens: "OmniFocus — add a task",
+    opens: "OmniFocus: add a task",
   },
   due: {
     prefix: "due://x-callback-url/add?title=",
     label: "Due",
     param: "title",
-    opens: "Due — new reminder",
+    opens: "Due: new reminder",
   },
   fantastical: {
     prefix: "x-fantastical3://parse?sentence=",
     label: "Fantastical",
     param: "sentence",
-    opens: "Fantastical — new event from natural language",
+    opens: "Fantastical: new event from natural language",
   },
   twitter: {
     prefix: "twitter://user?screen_name=",
     label: "X (Twitter)",
     param: "handle",
-    opens: "X — open a profile",
+    opens: "X: open a profile",
   },
   instagram: {
     prefix: "instagram://user?username=",
     label: "Instagram",
     param: "username",
-    opens: "Instagram — open a profile",
+    opens: "Instagram: open a profile",
   },
   telegram: {
     prefix: "tg://resolve?domain=",
     label: "Telegram",
     param: "username",
-    opens: "Telegram — open a user or channel",
+    opens: "Telegram: open a user or channel",
   },
   whatsapp: {
     prefix: "whatsapp://send?phone=",
     label: "WhatsApp",
     param: "phone",
-    opens: "WhatsApp — message a phone number",
+    opens: "WhatsApp: message a phone number",
   },
   googlemaps: {
     prefix: "comgooglemaps://?q=",
     label: "Google Maps",
     param: "query",
-    opens: "Google Maps — search a place",
+    opens: "Google Maps: search a place",
   },
   waze: {
     prefix: "waze://?q=",
     label: "Waze",
     param: "address",
-    opens: "Waze — navigate to an address",
+    opens: "Waze: navigate to an address",
   },
   zoom: {
     prefix: "zoommtg://zoom.us/join?confno=",
     label: "Zoom",
     param: "meeting-id",
-    opens: "Zoom — join a meeting by ID",
+    opens: "Zoom: join a meeting by ID",
   },
 
   // Launchers: no argument, just open the app. `bare` ignores the path tail.
@@ -311,7 +311,7 @@ export default {
  * Encode a string as a JS string literal safe to embed inside an inline
  * <script>. JSON.stringify alone does not neutralize "</script>" (or the
  * JS-string-breaking line separators U+2028/U+2029), so a /raw value such as
- * `x://</script><img onerror=...>` — whose scheme passes isSafeScheme — would
+ * `x://</script><img onerror=...>`, whose scheme passes isSafeScheme, would
  * otherwise break out of the script tag and execute (reflected XSS).
  * @param {string} str
  * @returns {string}
@@ -397,7 +397,7 @@ function usagePage(host) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Patchbay Go — Synodic Studio</title>
+  <title>Patchbay Go · Synodic Studio</title>
   <style>
     body {
       font-family: -apple-system, system-ui, sans-serif;
@@ -427,7 +427,7 @@ function usagePage(host) {
 <body>
   <a class="brand" href="https://synodic.co">Synodic Studio</a>
   <h1>Patchbay Go</h1>
-  <p class="lede">A tiny link relay. It wraps native app links (<code>obsidian://</code>, <code>calshow:</code>, and friends) in plain <code>https://</code> so chat apps render them as tappable — tap on the go, the app opens.</p>
+  <p class="lede">A tiny link relay. It wraps native app links (<code>obsidian://</code>, <code>calshow:</code>, and friends) in plain <code>https://</code> so chat apps render them as tappable. Tap on the go, the app opens.</p>
   <a class="cta" href="https://synodic.co">Made by Synodic Studio →</a>
   <h2>Routes</h2>
   <table>
@@ -451,7 +451,7 @@ ${h}/remind/Buy%20groceries
 ${h}/cal/2026-03-15
 ${h}/cal/2026-03-15/14:00
 ${h}/raw/dGhpbmdzOi8vLw</pre>
-  <footer>Part of the <a href="https://synodic.co">Synodic</a> Patchbay family — small tools that connect a phone to a host that runs agents and apps.</footer>
+  <footer>Part of the <a href="https://synodic.co">Synodic</a> Patchbay family. Small tools that connect a phone to a host that runs agents and apps.</footer>
 </body>
 </html>`;
 }
@@ -503,7 +503,7 @@ const BLOCKED_SCHEMES = new Set([
  * A /raw URI is safe to redirect to only if it carries an explicit scheme
  * that the browser passes through to the OS (obsidian:, things:, ...) rather
  * than one the browser evaluates itself. Anything without a clean `scheme:`
- * prefix, or whose scheme is browser-privileged, is rejected — fail closed.
+ * prefix, or whose scheme is browser-privileged, is rejected: fail closed.
  * @param {string} uri
  * @returns {boolean}
  */
@@ -565,7 +565,7 @@ function parseTokenRecord(raw) {
 }
 
 /**
- * POST /key/register — an agent's opening handshake. It supplies a label, its
+ * POST /key/register, an agent's opening handshake. It supplies a label, its
  * RSA-OAEP public key, and an optional https webhook; no secret exists yet.
  * The public key is required and is imported here to validate it.
  * @param {Request} request
@@ -671,7 +671,7 @@ async function handleKeyVaultE2E(request, env, token, record, ctx) {
 }
 
 /**
- * GET /key/<uuid>/result — one-shot retrieval of the stored ciphertext
+ * GET /key/<uuid>/result, one-shot retrieval of the stored ciphertext
  * envelope for agents that cannot receive a webhook. Deleted on read.
  * @param {Env} env
  * @param {string} uuid
@@ -694,7 +694,7 @@ async function handleKeyResult(env, uuid) {
 
 /**
  * Structural check that a submission is a real hybrid RSA-OAEP+AES-GCM
- * envelope for the token's key — the wrapped AES key must be exactly the RSA
+ * envelope for the token's key: the wrapped AES key must be exactly the RSA
  * modulus length, with a 12-byte IV and a GCM-tagged ciphertext. This can't
  * cryptographically prove encryption (the worker holds no private key by
  * design), but it rejects plaintext and malformed bodies.
@@ -851,7 +851,7 @@ function keyFormPageE2E(label, publicKeyB64) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Encrypted paste — ${escapeHtml(label)}</title>
+  <title>Encrypted paste · ${escapeHtml(label)}</title>
   <style>
     body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #1a1a2e; color: #e0e0e0; }
     .card { width: 90%; max-width: 420px; padding: 2rem; }

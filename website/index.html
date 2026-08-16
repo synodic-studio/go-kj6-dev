@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Patchbay Go — tappable links into your apps</title>
+<title>Patchbay Go · tappable links into your apps</title>
 <meta name="description" content="A tiny relay that wraps obsidian://, things://, calshow: and friends in plain https links, so Telegram and other chat apps render them as a single tap straight into the native app.">
 <meta property="og:title" content="Patchbay Go">
 <meta property="og:description" content="Wraps native app URL schemes in https links so chat apps make them tappable.">
@@ -107,7 +107,7 @@
   <div class="hero">
     <p class="kicker">Patchbay · a small tool</p>
     <h1>Patchbay&nbsp;Go</h1>
-    <p class="lede">Chat apps won't turn <b>obsidian://</b> or <b>things://</b> into a link — they arrive as dead text. Patchbay Go wraps them in a plain <b>https://</b> URL so Telegram makes them a single tap, straight into the app.</p>
+    <p class="lede">Chat apps won't turn <b>obsidian://</b> or <b>things://</b> into a link. They arrive as dead text. Patchbay Go wraps them in a plain <b>https://</b> URL so Telegram makes them a single tap, straight into the app.</p>
   </div>
 
   <div class="demo">
@@ -146,14 +146,14 @@
       <div class="cell"><div class="r"><b>/fantastical</b>/&lt;sentence&gt;</div><div class="o">Fantastical event</div></div>
       <div class="cell"><div class="r"><b>/raw</b>/&lt;base64url&gt;</div><div class="o">any native scheme</div></div>
     </div>
-    <p class="apps">…plus <code>/todoist</code>, <code>/bear</code>, <code>/drafts</code>, <code>/shortcuts</code>, <code>/whatsapp</code>, <code>/telegram</code>, <code>/googlemaps</code>, <code>/waze</code>, <code>/zoom</code> and launchers like <code>/slack</code> and <code>/music</code>. A language model writes <span class="mono">go.synodic.co/things/Buy%20milk</span> correctly on the first try; <code>/raw</code> covers the long tail — and refuses browser-privileged schemes, so a wrapped link can only ever open a native app, never run in the browser.</p>
+    <p class="apps">…plus <code>/todoist</code>, <code>/bear</code>, <code>/drafts</code>, <code>/shortcuts</code>, <code>/whatsapp</code>, <code>/telegram</code>, <code>/googlemaps</code>, <code>/waze</code>, <code>/zoom</code> and launchers like <code>/slack</code> and <code>/music</code>. A language model writes <span class="mono">go.synodic.co/things/Buy%20milk</span> correctly on the first try; <code>/raw</code> covers the long tail, and refuses browser-privileged schemes, so a wrapped link can only ever open a native app, never run in the browser.</p>
   </section>
 
   <section>
     <h2>One secret, without a chat log</h2>
     <div class="callout">
       <h3>The <span class="mono">/key</span> paste form</h3>
-      <p>An agent sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it is <strong>encrypted in your browser</strong> — to the agent's own key — before it's sent. The relay only ever stores ciphertext and never holds the key to read it; the agent decrypts it on its own machine. A quiet way to move a secret into your automation without it ever sitting in a chat, or in anyone else's hands.</p>
+      <p>An agent sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it is <strong>encrypted in your browser</strong>, to the agent's own key, before it's sent. The relay only ever stores ciphertext and never holds the key to read it; the agent decrypts it on its own machine. A quiet way to move a secret into your automation without it ever sitting in a chat, or in anyone else's hands.</p>
     </div>
   </section>
 
@@ -162,7 +162,7 @@
 <footer>
   <div class="wrap">
     <a class="fcta" href="https://synodic.co">Made by Synodic Studio →</a>
-    <p class="fmeta">Part of the <a href="https://synodic.co/patchbay/">Patchbay</a> family — small tools that connect a phone chat app to a host that runs agents and apps. Open source, MIT · <a href="https://github.com/synodic-studio/patchbay-go">source on GitHub</a>.</p>
+    <p class="fmeta">Part of the <a href="https://synodic.co/patchbay/">Patchbay</a> family. Small tools that connect a phone chat app to a host that runs agents and apps. Open source, MIT · <a href="https://github.com/synodic-studio/patchbay-go">source on GitHub</a>.</p>
   </div>
 </footer>
 

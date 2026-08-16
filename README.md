@@ -1,10 +1,40 @@
-# patchbay-go
+# Patchbay Go
 
-A small Cloudflare Worker that wraps custom URL schemes (`obsidian://`, `x-apple-reminderkit://`, `calshow:`, `things://`, `shortcuts://`, etc.) in plain `https://` links so Telegram and other chat apps recognize them as tappable. Part of the Synodic Patchbay family; it lives at a short `go.` host (e.g. `go.synodic.co`) — tap a link on the go, the app opens.
+Chat apps only linkify `http(s)`. Paste `obsidian://open?vault=Notes&file=today.md` into Telegram and it arrives as dead text — your phone is holding a perfectly good URI it refuses to make tappable.
 
-When an agent (or a script, or a human) wants to send a tappable link to a note in your Obsidian vault, a reminder, a calendar date, or anything else that lives behind a custom scheme, it cannot send `obsidian://open?vault=...` directly — most chat apps do not render custom schemes as links. Instead it sends `https://your-domain.example/obs/<vault>/<path>`. Tapping the link in the chat app opens it in the browser, which serves a tiny page that immediately redirects to the real native-scheme URI through `meta refresh` and a JS fallback. The app opens on your phone.
+Patchbay Go is a tiny redirector that fixes that. Send `https://go.synodic.co/obs/Notes/today.md` instead: the chat app linkifies it, the tap opens a browser, and the browser — where custom schemes *are* allowed — hands off to `obsidian://`. One hop, a fraction of a second, and the app opens.
+
+![The deployed landing page, contrasting a dead obsidian:// URI in a chat message with the tappable https link that replaces it](docs/screenshots/landing.png)
 
 This is part of the [Patchbay](https://github.com/synodic-studio/patchbay-relay) family of small tools that connect a phone chat app to a host that runs agents and apps.
+
+## Use it
+
+There is nothing to install and no account to make. **`https://go.synodic.co` is live and open** — build a URL and send it:
+
+```
+https://go.synodic.co/obs/MyVault/notes/today.md
+https://go.synodic.co/things/Buy%20milk
+https://go.synodic.co/cal/2026-03-14
+```
+
+It is offered as-is, on a free tier, with no uptime promise. If you would rather not depend on someone else's host — or you want the `/key` vault, which stores data — [deploy your own](DEPLOYING.md). It is one file and a `wrangler` command.
+
+Worth knowing before you rely on it:
+
+- **No auth, no logging, no state.** Every route is a pure function of the URL. The only storage anywhere is the optional KV namespace behind `/key`, and that holds ciphertext with a ten-minute TTL.
+- **A wrapped link can only ever open a native app.** `/raw` refuses browser-privileged schemes (`javascript:`, `data:`, `http(s):`, …), so a link built by someone else cannot run in your browser.
+- **The redirect is not a guarantee the app opens.** If the target app is not installed, you land on the fallback page and nothing happens. There is no error to catch — that is the platform's behavior, not the worker's.
+- **Host-agnostic.** Nothing is hardcoded to a domain; a deployment serves the same routes and advertises its own hostname.
+
+## What a tap looks like
+
+The redirect page is the entire user-facing surface of a wrapped link: it flashes by on the way into the app, and only lingers if the app is not installed. The `/key` form is the one page that asks for input.
+
+<p>
+  <img src="docs/screenshots/redirect.png" alt="The redirect page: a spinner over the text &quot;Opening today.md in Obsidian&quot;, with a manual tap-through link below it" width="340">
+  <img src="docs/screenshots/key-form.png" alt="The /key paste form: a labeled field reading &quot;OpenAI API key&quot;, a paste box, and an &quot;Encrypt &amp; send&quot; button" width="340">
+</p>
 
 ## Routes
 
@@ -14,107 +44,60 @@ This is part of the [Patchbay](https://github.com/synodic-studio/patchbay-relay)
 | `/remind/<title>` | `x-apple-reminderkit://REMCDReminder/<title>` |
 | `/cal/<yyyy-mm-dd>` | `calshow:<epoch>` (Calendar.app) |
 | `/cal/<yyyy-mm-dd>/<hh:mm>` | `calshow:<epoch>` at a specific time |
-| `/raw/<base64url>` | Any **native** custom scheme (base64url-encoded full URI). Browser-privileged schemes (`javascript:`, `data:`, `http(s):`, …) are refused. |
+| `/raw/<base64url>` | Any **native** custom scheme (base64url-encoded full URI). Browser-privileged schemes are refused. |
 | `/key/<uuid>` | Token-secured paste form (KV-backed, optional) |
 | `/` | Usage page (renders the deployed hostname automatically) |
 
 ### Popular app routes
 
-So callers rarely need `/raw`, common apps get named routes. Content routes take a single free-text value (URI-encoded automatically); launcher routes just open the app.
+Common apps get named routes, so callers rarely need `/raw`. Content routes take a single free-text value, URI-encoded for you:
+
+- `/things/<title>` → `things:///add?title=<title>`
+- `/todoist/<content>` → `todoist://addtask?content=<content>`
+- `/fantastical/<sentence>` → `x-fantastical3://parse?sentence=<sentence>`, natural language like `Lunch with Sam tomorrow 1pm`
+- `/shortcuts/<name>` → runs a Shortcut by name
+- `/bear/<title>`, `/drafts/<text>`, `/ulysses/<text>`, `/omnifocus/<name>`, `/due/<title>` → notes and tasks
+- `/twitter/<handle>`, `/instagram/<username>`, `/telegram/<username>`, `/whatsapp/<phone>` → a profile or a chat
+- `/googlemaps/<query>`, `/waze/<address>`, `/zoom/<meeting-id>` → maps and meetings
+
+Launchers take no argument and just open the app: `/music`, `/podcasts`, `/overcast`, `/soundcloud`, `/slack`, `/discord`, `/reddit`, `/linkedin`.
+
+Because the path is plain and predictable, a language model writes `go.synodic.co/things/Buy%20milk` correctly on the first try — which is the point, since agents are the main callers. The live list renders on the `/` page of any deployment; the single source of truth is `APP_ROUTES` in `src/worker.js`, and adding an app is one entry.
+
+For any scheme not listed, base64url-encode the full URI and use `/raw`:
 
 ```
-/things/<title>            things:///add?title=<title>
-/todoist/<content>         todoist://addtask?content=<content>
-/fantastical/<sentence>    x-fantastical3://parse?sentence=<sentence>
-/shortcuts/<name>          shortcuts://run-shortcut?name=<name>
-/bear/<title>  /drafts/<text>  /ulysses/<text>  /omnifocus/<name>  /due/<title>
-/twitter/<handle>  /instagram/<username>  /telegram/<username>  /whatsapp/<phone>
-/googlemaps/<query>  /waze/<address>  /zoom/<meeting-id>
-/music  /podcasts  /overcast  /soundcloud  /slack  /discord  /reddit  /linkedin   (launchers)
+https://go.synodic.co/raw/dGhpbmdzOi8vLw       # → things:///
 ```
 
-The full, live list renders on the `/` page of a deployment (single source of truth is `APP_ROUTES` in `src/worker.js` — adding an app is one entry). For any scheme not listed, use `/raw/<base64url>`.
+## `/key`: move a secret without putting it in a chat log
 
-## Deploy
+An agent needs your API key. Pasting it into the chat means it lives in the chat history, on a server, forever. `/key` is the way around that.
 
-Runs as a **Cloudflare Pages** project (direct upload, advanced mode — the build step just copies `src/worker.js` to `dist/_worker.js`). You need a Cloudflare account and the [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/).
-
-```bash
-npm install
-cp wrangler.example.toml wrangler.toml   # edit project name to taste
-npm run deploy                           # build + wrangler pages deploy dist
-```
-
-`npm run deploy` runs `wrangler pages deploy dist --project-name <name> --branch main`. The first deploy gives you `https://<name>.pages.dev`.
-
-To put it on a short custom domain (recommended — nicer in chats), attach it to the Pages project and point DNS at `<name>.pages.dev` (proxied):
-
-```bash
-# attach custom domain to the project
-curl -H "Authorization: Bearer $CF_TOKEN" -X POST \
-  "https://api.cloudflare.com/client/v4/accounts/$CF_ACCT/pages/projects/<name>/domains" \
-  -d '{"name":"go.example.com"}'
-# then create a proxied CNAME  go -> <name>.pages.dev  in that zone
-```
-
-### Headless deploy with API tokens
-
-Set `CLOUDFLARE_API_TOKEN` (a token with **Cloudflare Pages: Edit**, plus **Workers Routes / DNS: Edit** on the zone if you attach a custom domain) and `CLOUDFLARE_ACCOUNT_ID` — no interactive `wrangler login` needed:
-
-```bash
-CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... npm run deploy
-```
-
-## Optional: `/key` vault (end-to-end encrypted)
-
-The `/key` routes move a secret from a phone into a service **without the worker ever seeing the plaintext**. The requester holds a keypair; the secret is encrypted in the browser to the requester's public key; the worker only ever stores ciphertext.
+The agent generates a keypair and registers its **public** key, which yields a one-time `https://<host>/key/<uuid>` link. You tap it, paste the secret into the form, and the page encrypts it *in your browser* — AES-GCM, wrapped to the agent's RSA-OAEP key — before anything is sent. The worker only ever stores ciphertext and never holds a key that could read it. The agent fetches the envelope and decrypts it on its own machine, where its private key never left.
 
 ```
 POST /key/register  {label, publicKey, webhook?}  -> {uuid, secret, url}
-GET  /key/<uuid>                                   -> browser-encrypting form
-POST /key/<uuid>     {envelope}                     -> stores ciphertext, fires webhook
-GET  /key/<uuid>/result                            -> one-shot ciphertext retrieval
+GET  /key/<uuid>                                  -> browser-encrypting form
+POST /key/<uuid>    {envelope}                    -> stores ciphertext, fires webhook
+GET  /key/<uuid>/result                           -> one-shot ciphertext retrieval
 ```
 
-Flow: a requester generates a keypair and `POST`s its public key to `/key/register`; it sends the returned `https://<host>/key/<uuid>` link; the user taps, pastes, and the page encrypts (AES-GCM wrapped with the requester's RSA-OAEP key) and submits the envelope; the worker stores ciphertext and either fires the signed `webhook` or holds it for `GET /key/<uuid>/result` (one-shot). The requester decrypts with its private key, which never leaves its machine. The public key is validated at registration and required — there is no plaintext path.
-
-A ready-to-use client is in [`clients/patchbay_key.py`](clients/patchbay_key.py) (a self-contained `uv` script):
+A ready-to-use client is in [`clients/patchbay_key.py`](clients/patchbay_key.py), a self-contained `uv` script:
 
 ```bash
 uv run clients/patchbay_key.py register my-service   # prints the tappable link
-uv run clients/patchbay_key.py fetch my-service       # decrypts into `pass`
+uv run clients/patchbay_key.py fetch my-service      # decrypts into `pass`
 ```
 
-To enable the routes, bind a KV namespace:
-
-```bash
-npx wrangler kv namespace create VAULT
-```
-
-Paste the returned `id` into the `[[kv_namespaces]]` block in your `wrangler.toml`. If the binding is not present, `/key/*` returns 400 — every other route still works.
-
-## Use it from anywhere
-
-Once it is deployed, any code that wants to send a tappable native-scheme link from a chat message can construct one of the wrapped URLs by hand. The Worker has no auth, no logging, and no state outside the optional KV.
-
-For Obsidian:
-
-```
-https://your-domain.example/obs/MyVault/notes/today.md
-```
-
-For any other scheme, base64url-encode the full URI:
-
-```
-https://your-domain.example/raw/dGhpbmdzOi8vLw       # → things:///
-```
+These routes are the only part that needs storage, so they only work on a deployment with a KV namespace bound — see [DEPLOYING.md](DEPLOYING.md). Without the binding, `/key/*` returns 400 and every other route still works.
 
 ## Pointing a Patchbay host at your domain
 
-Once deployed, export the URL prefix as `PATCHBAY_URL_WRAPPER` on the host so agents pick it up:
+Export the URL prefix on the host so agents pick it up:
 
 ```bash
-export PATCHBAY_URL_WRAPPER="https://go.example.com"
+export PATCHBAY_URL_WRAPPER="https://go.synodic.co"
 ```
 
 Agent code that builds links reads this prefix and emits `${PATCHBAY_URL_WRAPPER}/obs/<vault>/<path>` instead of raw `obsidian://` URIs.

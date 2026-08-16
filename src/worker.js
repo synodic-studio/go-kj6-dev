@@ -39,12 +39,6 @@
  * @property {string} opens - One-line description of what it opens.
  */
 
-/** Canonical host. Legacy hosts 301-redirect here, preserving path + query. */
-const CANONICAL_HOST = "go.synodic.co";
-
-/** Old hosts kept alive only to forward already-sent links to the canonical host. */
-const LEGACY_HOSTS = new Set(["go.kj6.dev"]);
-
 /**
  * Named routes for popular apps so callers rarely need /raw. Each maps a short
  * path segment to a custom-scheme prefix; `/things/Buy%20milk` becomes
@@ -205,13 +199,6 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
-
-    if (LEGACY_HOSTS.has(url.hostname)) {
-      return Response.redirect(
-        `https://${CANONICAL_HOST}${url.pathname}${url.search}`,
-        301,
-      );
-    }
 
     if (path === "/" || path === "") {
       // Serve the static marketing page (dist/index.html) when the Pages
@@ -634,7 +621,7 @@ async function handleKeyRegister(request, env) {
   return jsonResponse({
     uuid,
     secret,
-    url: `https://${CANONICAL_HOST}/key/${uuid}`,
+    url: `${new URL(request.url).origin}/key/${uuid}`,
   });
 }
 

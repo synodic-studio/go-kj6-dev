@@ -319,26 +319,16 @@ describe("named app routes", () => {
   });
 });
 
-describe("legacy host redirect", () => {
-  it("301-redirects go.kj6.dev to go.synodic.co, preserving path + query", async () => {
-    const res = await worker.fetch(
-      new Request("https://go.kj6.dev/obs/Notes/journal/note.md?x=1"),
-      mockEnv(),
-    );
-    expect(res.status).toBe(301);
-    expect(res.headers.get("Location")).toBe(
-      "https://go.synodic.co/obs/Notes/journal/note.md?x=1",
-    );
-  });
-
-  it("serves normally on the canonical host", async () => {
-    const res = await worker.fetch(
-      new Request("https://go.synodic.co/things/Test"),
-      mockEnv(),
-    );
-    expect(res.status).toBe(200);
-    const body = await res.text();
-    expect(body).toContain("things:///add?title=Test");
+describe("host independence", () => {
+  it("serves the same routes on any host it is deployed under", async () => {
+    for (const host of ["go.synodic.co", "go.example.com", "patchbay.pages.dev"]) {
+      const res = await worker.fetch(
+        new Request(`https://${host}/things/Test`),
+        mockEnv(),
+      );
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("things:///add?title=Test");
+    }
   });
 });
 
@@ -545,9 +535,23 @@ describe("end-to-end encrypted /key", () => {
     expect(sub.status).toBe(400);
   });
 
-  it("requires a public key to register (no plaintext mode)", async () => {
+  it("requires a public key to register", async () => {
     const res = await worker.fetch(registerReq({ label: "x" }), mockEnv());
     expect(res.status).toBe(400);
+  });
+
+  it("returns a link on the host the registration came in on", async () => {
+    const { pubB64 } = await agentKeypair();
+    const res = await worker.fetch(
+      new Request("https://go.example.com/key/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "x", publicKey: pubB64 }),
+      }),
+      mockEnv(),
+    );
+    const { url } = await res.json();
+    expect(url.startsWith("https://go.example.com/key/")).toBe(true);
   });
 
   it("fires a signed webhook on submit when one is registered", async () => {

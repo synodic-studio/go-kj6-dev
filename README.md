@@ -55,7 +55,7 @@ Four are worth a word:
 - `/cal/` takes a date and optionally a time, as `/cal/2026-03-14/09:30`.
 - `/fantastical/` takes plain language, so `/fantastical/Lunch%20with%20Sam%201pm` becomes an event.
 - `/raw/` takes the base64url of an entire URI, for any scheme with no named route.
-- `/key/` is the encrypted paste form, and `/` on its own is the usage page for whichever deployment you are on.
+- `/key/` is the encrypted paste form.
 
 ### What `/raw` refuses
 

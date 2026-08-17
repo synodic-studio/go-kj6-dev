@@ -40,7 +40,7 @@ curl -H "Authorization: Bearer $CF_TOKEN" -X POST \
 
 Then create a **proxied** CNAME record `go` → `<name>.pages.dev` in that zone. Proxied matters: an unproxied record bypasses Pages entirely.
 
-Nothing in the worker is pinned to a hostname. It serves the same routes on whatever domain reaches it, and the `/` usage page and `/key/register` responses both use the host the request came in on.
+Nothing in the worker is pinned to a hostname. It serves the same routes on whatever domain reaches it, and `/key/register` hands out links on the host the request came in on.
 
 ## Enabling `/key`
 

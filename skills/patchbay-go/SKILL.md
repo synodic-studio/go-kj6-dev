@@ -48,10 +48,10 @@ Launchers (just open the app, no argument):
 /music  /podcasts  /overcast  /soundcloud  /slack  /discord  /reddit  /linkedin
 ```
 
-The live, authoritative list renders on `https://go.synodic.co/` (single source of truth is `APP_ROUTES` in the patchbay-go worker). For any scheme not covered, base64url-encode the full URI and use `/raw/<base64url>`.
+`APP_ROUTES` in the patchbay-go worker is the authoritative list; `https://go.synodic.co/` is a marketing page, not a route reference. For any scheme not covered, base64url-encode the full URI and use `/raw/<base64url>`.
 
 Note: a named route with a wrong or stale scheme prefix produces a link that redirects but silently opens nothing, with no error. If an app doesn't open, fall back to `/raw` with the correct scheme.
 
 ## Notes
 
-- The redirect page is sub-second; the user never really sees it. The bare `/` page is a Synodic Studio billboard.
+- The redirect page is sub-second; the user never really sees it.

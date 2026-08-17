@@ -37,6 +37,7 @@ AUTO=""
 [ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
 DEMO_VAULT="${DEMO_VAULT:-Notes}"
 DEMO_NOTE="${DEMO_NOTE:-today.md}"
+DEMO_NOTE_ALT="${DEMO_NOTE_ALT:-}"
 DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
 
 while [ $# -gt 0 ]; do
@@ -90,8 +91,13 @@ if [ -z "$MODE" ]; then
   printf '%s\n' "$MODE"
 fi
 
-WRAPPED="$HOST/obsidian/$DEMO_VAULT/$DEMO_NOTE"
-SCHEME="obsidian://open?vault=$DEMO_VAULT&file=$DEMO_NOTE"
+# Percent-encode a note path for the URL, leaving the separators alone.
+encode_path() { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"; }
+
+WRAPPED="$HOST/obsidian/$DEMO_VAULT/$(encode_path "$DEMO_NOTE")"
+WRAPPED_ALT=""
+[ -n "$DEMO_NOTE_ALT" ] && WRAPPED_ALT="$HOST/obsidian/$DEMO_VAULT/$(encode_path "$DEMO_NOTE_ALT")"
+SCHEME="obsidian://open?vault=$DEMO_VAULT&file=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$DEMO_NOTE")"
 
 # ---------------------------------------------------------------------------
 
@@ -103,21 +109,32 @@ beat_telegram() {
 
   if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
     warn "No Telegram credentials, so nothing was sent. See scripts/demo.env.example."
-    say "The message would carry these two lines, one dead and one tappable:"
+    say "The message would carry the raw URI, the same URI behind a label,"
+    say "and the wrapped link:"
     printf '\n  %s\n  %s\n' "$SCHEME" "$WRAPPED"
     return
   fi
 
-  local text payload code
-  text="Your note:
-$SCHEME
+  # Three attempts at the same destination, in HTML mode so the middle one
+  # can be a real anchor. Telegram accepts that anchor and then drops it,
+  # which is the point: the markup arrives with no link on it at all.
+  local payload code
+  payload=$(SCHEME="$SCHEME" WRAPPED="$WRAPPED" ALT="$WRAPPED_ALT" \
+    CHAT="$TELEGRAM_CHAT_ID" THREAD="$TELEGRAM_THREAD_ID" python3 -c '
+import html, json, os
 
-Or tap:
-$WRAPPED"
-  payload=$(TEXT="$text" CHAT="$TELEGRAM_CHAT_ID" THREAD="$TELEGRAM_THREAD_ID" python3 -c '
-import json, os
-body = {"chat_id": os.environ["CHAT"], "text": os.environ["TEXT"],
-        "disable_web_page_preview": True}
+scheme, wrapped, alt = os.environ["SCHEME"], os.environ["WRAPPED"], os.environ["ALT"]
+e = html.escape
+lines = [
+    "Straight up:", e(scheme), "",
+    "Behind a label, to force it:",
+    f"<a href=\"{e(scheme, quote=True)}\">Open the note</a>", "",
+    "Wrapped:", e(wrapped),
+]
+if alt:
+    lines.append(e(alt))
+body = {"chat_id": os.environ["CHAT"], "parse_mode": "HTML",
+        "text": "\n".join(lines), "disable_web_page_preview": True}
 if os.environ.get("THREAD"):
     body["message_thread_id"] = int(os.environ["THREAD"])
 print(json.dumps(body))')
@@ -127,10 +144,13 @@ print(json.dumps(body))')
     "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
     -H 'Content-Type: application/json' -d "$payload")
   if [ "$code" = "200" ]; then
-    say "Sent. Both lines are in the chat now."
+    say "Sent. Three attempts at the same note, in the chat now."
     echo
-    say "The first one is grey text. The second is a link, and tapping it"
-    say "opens the note. Same URI underneath, one hop through a browser."
+    say "The first is grey text. The second was sent as a real hyperlink and"
+    say "arrived as grey text too: Telegram took the markup, kept the label,"
+    say "and threw the link away without saying so."
+    echo
+    say "The last one is tappable, and it opens the note."
   else
     warn "Telegram returned HTTP $code, so check the token and chat id."
   fi

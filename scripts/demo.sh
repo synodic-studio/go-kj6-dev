@@ -32,7 +32,7 @@ HOST="https://go.synodic.co"
 AUTO=""
 
 [ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
-DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
+DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-weather-api-key}"
 
 while [ $# -gt 0 ]; do
   case "$1" in

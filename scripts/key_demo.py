@@ -126,7 +126,7 @@ def decrypt(private_key, envelope):
 def main():
     ap = argparse.ArgumentParser(description="Narrated /key handoff.")
     ap.add_argument("--host", default=os.environ.get("PATCHBAY_HOST", "https://go.synodic.co"))
-    ap.add_argument("--label", default="openai-api-key")
+    ap.add_argument("--label", default="weather-api-key")
     ap.add_argument("--auto", action="store_true", help="submit the secret from here, no browser")
     ap.add_argument("--telegram", action="store_true", help="send the link to a chat")
     ap.add_argument("--timeout", type=int, default=180, help="seconds to wait for a submission")

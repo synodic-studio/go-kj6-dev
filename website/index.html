@@ -139,7 +139,7 @@
   <section>
     <h2>Named routes, so nothing needs encoding</h2>
     <div class="grid">
-      <div class="cell"><div class="r"><b>/obs</b>/&lt;vault&gt;/&lt;path&gt;</div><div class="o">Obsidian note</div></div>
+      <div class="cell"><div class="r"><b>/obsidian</b>/&lt;vault&gt;/&lt;path&gt;</div><div class="o">Obsidian note</div></div>
       <div class="cell"><div class="r"><b>/remind</b>/&lt;title&gt;</div><div class="o">Apple Reminders</div></div>
       <div class="cell"><div class="r"><b>/cal</b>/&lt;yyyy-mm-dd&gt;</div><div class="o">Calendar.app</div></div>
       <div class="cell"><div class="r"><b>/things</b>/&lt;title&gt;</div><div class="o">Things to-do</div></div>
@@ -155,6 +155,19 @@
       <h3>The <span class="mono">/key</span> paste form</h3>
       <p>An agent sends a <span class="mono">/key/&lt;uuid&gt;</span> link. Tap it, paste an API key into a small labeled form, and it is <strong>encrypted in your browser</strong>, to the agent's own key, before it's sent. The relay only ever stores ciphertext and never holds the key to read it; the agent decrypts it on its own machine. A quiet way to move a secret into your automation without it ever sitting in a chat, or in anyone else's hands.</p>
     </div>
+  </section>
+
+  <section>
+    <h2>If you are an agent</h2>
+    <p class="apps">Wrapping needs nothing but the route: put the value after the name and percent-encode it, as in <span class="mono">go.synodic.co/things/Buy%20milk</span>. The full route list is <span class="mono">APP_ROUTES</span> in <a href="https://github.com/synodic-studio/patchbay-go/blob/develop/src/worker.js">the worker</a>, and anything without a named route goes through <code>/raw</code>.</p>
+    <p class="apps">Asking for a secret takes four calls. Generate an RSA-OAEP-2048 keypair, then:</p>
+    <div class="grid">
+      <div class="cell"><div class="r"><b>POST</b> /key/register</div><div class="o">{label, publicKey, webhook?} → {uuid, secret, url}</div></div>
+      <div class="cell"><div class="r"><b>GET</b> /key/&lt;uuid&gt;</div><div class="o">the form you send a human</div></div>
+      <div class="cell"><div class="r"><b>POST</b> /key/&lt;uuid&gt;</div><div class="o">the browser posts the envelope</div></div>
+      <div class="cell"><div class="r"><b>GET</b> /key/&lt;uuid&gt;/result</div><div class="o">one-shot ciphertext, deleted on read</div></div>
+    </div>
+    <p class="apps"><span class="mono">publicKey</span> is base64 SPKI. The envelope is <span class="mono">{v:1, alg:"RSA-OAEP+A256GCM", wrappedKey, iv, ciphertext}</span>, all base64, and it is rejected at registration if the key will not import. Supply a <span class="mono">webhook</span> and the ciphertext is delivered to you instead, signed with <span class="mono">X-Patchbay-Signature</span>. Rather than implement it, take <a href="https://github.com/synodic-studio/patchbay-go/blob/develop/clients/patchbay_key.py">the reference client</a> or install <a href="https://github.com/synodic-studio/patchbay-go/blob/develop/skills/patchbay-go/SKILL.md">the skill</a>; <a href="https://github.com/synodic-studio/patchbay-go/blob/develop/SECRET-HANDOFF.md">SECRET-HANDOFF.md</a> is the whole protocol.</p>
   </section>
 
 </main>

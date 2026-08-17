@@ -2,22 +2,20 @@
 #
 # A guided tour of a running deployment, and a smoke test of one.
 #
-#   scripts/demo.sh              pick a length from the menu
-#   scripts/demo.sh short        the message and the tap, about 30 seconds
-#   scripts/demo.sh long         adds what it refuses, and the /key handoff
-#   scripts/demo.sh tour         every beat, including the test suite
+# Three beats: a chat message that only one link in survives, what /raw
+# refuses to redirect to, and the encrypted /key handoff.
 #
 #   --auto     run start to finish with no interaction, for rehearsal
 #   --host H   point at another deployment, default https://go.synodic.co
 #
-# Nothing needs typing. One keypress advances a beat, one keypress picks a
-# length. Credentials come from scripts/demo.env, which is gitignored; see
-# scripts/demo.env.example. Without it the Telegram beat prints its cue
-# instead of sending anything, and every other beat is unaffected.
+# Nothing needs typing; one keypress advances a beat. Credentials come from
+# scripts/demo.env, which is gitignored; see scripts/demo.env.example.
+# Without it the Telegram beat prints its cue instead of sending anything,
+# and every other beat is unaffected.
 #
 # Offline, if the venue network is hostile:
 #   npm run build && npx wrangler pages dev dist --kv VAULT
-#   scripts/demo.sh long --host http://localhost:8788
+#   scripts/demo.sh --host http://localhost:8788
 # The /raw and /key beats work unchanged. The Telegram beat still sends,
 # but the link it sends points at a host only this laptop can reach.
 #
@@ -27,11 +25,10 @@
 #   3. Run it once in the browser you will demo with, and answer the
 #      "allow this site to open Obsidian" prompt, so it stays quiet live.
 #
-# Deliberately without `set -e`. A failed beat prints and the tour continues.
+# Deliberately without `set -e`. A failed beat prints and the rest still runs.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOST="https://go.synodic.co"
-MODE=""
 AUTO=""
 
 [ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
@@ -39,10 +36,9 @@ DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    short|long|tour) MODE="$1"; shift ;;
     --host) HOST="${2%/}"; shift 2 ;;
     --auto) AUTO="1"; shift ;;
-    -h|--help) sed -n '3,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -71,22 +67,6 @@ run() {
   printf '%s$ %s%s\n' "$C" "$label" "$R"
   "$@" || printf '%s(exit %d)%s\n' "$Y" "$?" "$R"
 }
-
-if [ -z "$MODE" ]; then
-  printf '\n%sPatchbay Go%s\n\n' "$B" "$R"
-  printf '  %s1%s  short   the message and the tap, about 30 seconds\n' "$B" "$R"
-  printf '  %s2%s  long    adds what it refuses, and the encrypted handoff\n' "$B" "$R"
-  printf '  %s3%s  tour    every beat, including the test suite\n\n' "$B" "$R"
-  printf '%s[1, 2 or 3]%s ' "$D" "$R"
-  read -n 1 -s -r pick </dev/tty
-  case "$pick" in
-    1) MODE="short" ;;
-    2) MODE="long" ;;
-    3) MODE="tour" ;;
-    *) MODE="short" ;;
-  esac
-  printf '%s\n' "$MODE"
-fi
 
 if [ -z "$DEMO_VAULT" ] || [ -z "$DEMO_NOTE" ]; then
   printf '%sSet DEMO_VAULT and DEMO_NOTE in scripts/demo.env before demoing.%s\n' "$Y" "$R"
@@ -169,20 +149,6 @@ print(json.dumps(body))')
   fi
 }
 
-beat_mechanism() {
-  beat "One page, and no state anywhere"
-  say "That link is not a lookup. Nothing was stored when it was built, and"
-  say "nothing is stored when it is opened. The path is the whole input."
-  echo
-  run "curl -s $WRAPPED | grep http-equiv" \
-    sh -c "curl -s '$WRAPPED' | grep -i 'http-equiv=\"refresh\"'"
-  echo
-  say "That is the entire mechanism. Browsers may follow custom schemes and"
-  say "chat apps may not, so the link borrows a browser for a fraction of a"
-  say "second. Nothing is pinned to a hostname either: any deployment serves"
-  say "the same routes and hands out links on its own domain."
-}
-
 beat_raw() {
   beat "What it refuses to do"
   say "/raw takes a base64url URI, so whoever builds the link picks the"
@@ -219,37 +185,12 @@ beat_key() {
     uv run "$ROOT/scripts/key_demo.py" $flags
 }
 
-beat_cost() {
-  beat "What it costs to run"
-  say "One file, no runtime dependencies, and a suite that needs no network"
-  say "and no Cloudflare account."
-  echo
-  run "wc -l src/worker.js" wc -l "$ROOT/src/worker.js"
-  echo
-  run "npm test" sh -c "cd '$ROOT' && npm test 2>&1 | tail -5"
-}
-
 # ---------------------------------------------------------------------------
 
-printf '\n%sPatchbay Go%s  %s%s, %s%s\n' "$B" "$R" "$D" "$HOST" "$MODE" "$R"
+printf '\n%sPatchbay Go%s  %s%s%s\n' "$B" "$R" "$D" "$HOST" "$R"
 
-case "$MODE" in
-  short)
-    beat_telegram
-    ;;
-  long)
-    beat_telegram; advance
-    beat_mechanism; advance
-    beat_raw; advance
-    beat_key
-    ;;
-  tour)
-    beat_telegram; advance
-    beat_mechanism; advance
-    beat_raw; advance
-    beat_key; advance
-    beat_cost
-    ;;
-esac
+beat_telegram; advance
+beat_raw; advance
+beat_key
 
 printf '\n%sgithub.com/synodic-studio/patchbay-go%s\n\n' "$D" "$R"

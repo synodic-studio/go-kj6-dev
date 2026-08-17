@@ -53,11 +53,12 @@ beat() { printf '\n%s%s== %s%s\n\n' "$D" "$B" "$1" "$R"; }
 say()  { printf '%s%s%s\n' "$D" "$1" "$R"; }
 warn() { printf '%s%s%s\n' "$Y" "$1" "$R"; }
 
-# Any single key advances. Never waits when rehearsing.
+# Any single key advances. Never waits when rehearsing. Keys come from fd 3,
+# the terminal opened at startup, so a redirected stdin does not swallow them.
 advance() {
   [ -n "$AUTO" ] && return 0
   printf '\n%s[any key]%s' "$D" "$R"
-  read -n 1 -s -r _ </dev/tty 2>/dev/null || read -r _ </dev/tty 2>/dev/null
+  read -n 1 -s -r _ <&3
   printf '\r%*s\r' 12 ""
 }
 
@@ -67,6 +68,20 @@ run() {
   printf '%s$ %s%s\n' "$C" "$label" "$R"
   "$@" || printf '%s(exit %d)%s\n' "$Y" "$?" "$R"
 }
+
+# Without a terminal every keypress returns instantly and all three beats run
+# in one breath, which looks exactly like the demo failing. Say so and stop.
+# Tested in a subshell first: a failed `exec` redirect prints its own error
+# before any 2>/dev/null on the same line can take effect.
+if [ -z "$AUTO" ]; then
+  if (exec 3</dev/tty) 2>/dev/null; then
+    exec 3</dev/tty
+  else
+    warn "No terminal to read keypresses from, so every beat would run at once."
+    warn "Run it from a terminal, or use --auto to run the whole thing."
+    exit 1
+  fi
+fi
 
 if [ -z "$DEMO_VAULT" ] || [ -z "$DEMO_NOTE" ]; then
   printf '%sSet DEMO_VAULT and DEMO_NOTE in scripts/demo.env before demoing.%s\n' "$Y" "$R"
@@ -141,6 +156,10 @@ print(json.dumps(body))')
     say "kept the label and dropped the link, and called it a success."
     echo
     say "The other two work, labeled or not. Same markup, different scheme."
+    echo
+    # On screen as well as in the thread, so it can be pasted to whoever is
+    # watching rather than only tapped on the phone.
+    printf '  %s%s%s\n' "$B" "$WRAPPED" "$R"
   else
     warn "Telegram returned HTTP $code, so check the token and chat id."
   fi

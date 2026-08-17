@@ -86,8 +86,7 @@ SCHEME="obsidian://open?vault=$DEMO_VAULT&file=$(python3 -c 'import sys,urllib.p
 
 beat_telegram() {
   beat "The problem, and the whole fix"
-  say "Chat apps only linkify web links. The URI your machine knows how to"
-  say "open is the one thing the chat refuses to make tappable."
+  say "Chat apps only linkify web links."
   echo
 
   if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
@@ -136,14 +135,12 @@ print(json.dumps(body))')
     "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
     -H 'Content-Type: application/json' -d "$payload")
   if [ "$code" = "200" ]; then
-    say "Sent. The same note, addressed four ways."
+    say "Sent. The same note, four ways."
     echo
-    say "The raw URI is grey text, which is expected. The labeled version was"
-    say "sent as a genuine hyperlink and arrived as grey text as well: the chat"
-    say "kept the label, discarded the link, and reported success either way."
+    say "The top two are grey text. The second was a real hyperlink: the chat"
+    say "kept the label and dropped the link, and called it a success."
     echo
-    say "The wrapped ones are live, including behind labels. Identical markup,"
-    say "and the only thing that changed is the scheme underneath."
+    say "The other two work, labeled or not. Same markup, different scheme."
   else
     warn "Telegram returned HTTP $code, so check the token and chat id."
   fi
@@ -151,28 +148,26 @@ print(json.dumps(body))')
 
 beat_raw() {
   beat "What it refuses to do"
-  say "/raw takes a base64url URI, so whoever builds the link picks the"
-  say "scheme. That is an open redirect waiting to happen, so it is checked."
+  say "/raw takes any URI, so the caller picks the scheme. It gets checked."
   echo
   local evil good
   evil=$(printf 'https://evil.example' | base64 | tr -d '\n=' | tr '+/' '-_')
   good=$(printf 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' | base64 | tr -d '\n=' | tr '+/' '-_')
   run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 https://evil.example)" \
     curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$evil"
-  say "Refusing http and https is what stops a phishing link from wearing"
-  say "this domain. javascript, data, file and blob are refused for the more"
-  say "obvious reason: they run or read things inside the browser."
+  say "Refusing http and https stops a phishing link from wearing this"
+  say "domain. javascript, data and file would run inside the browser."
   echo
   run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 spotify:track:...)" \
     curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$good"
-  say "A scheme that can only ever reach an app passes through."
+  say "A scheme that can only reach an app passes."
 }
 
 beat_key() {
   beat "Handing a secret over with zero knowledge"
-  say "An agent needs an API key that only you have. Pasting it into the chat"
-  say "leaves it in the history forever. This passes it instead, and the"
-  say "server is oblivious by construction: it only ever holds ciphertext."
+  say "An agent needs a key only you have. Pasting it in the chat leaves it"
+  say "there forever. This hands it over instead, and the server only ever"
+  say "holds ciphertext."
   echo
   if ! command -v uv >/dev/null 2>&1; then
     warn "This beat needs uv: https://docs.astral.sh/uv/"

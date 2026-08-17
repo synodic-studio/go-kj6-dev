@@ -133,14 +133,14 @@ def main():
     args = ap.parse_args()
     host = args.host.rstrip("/")
 
-    print(f"{DIM}The agent generates a keypair. The private half stays in this process.{RESET}")
+    print(f"{DIM}Generating a keypair. The private half stays in this process.{RESET}")
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     spki = key.public_key().public_bytes(
         serialization.Encoding.DER,
         serialization.PublicFormat.SubjectPublicKeyInfo,
     )
 
-    print(f"{DIM}It sends the public half, and only the public half.{RESET}")
+    print(f"{DIM}Only the public half is sent.{RESET}")
     try:
         status, reg = post(
             f"{host}/key/register",
@@ -182,11 +182,11 @@ def main():
     if not envelope:
         sys.exit(f"{YELLOW}Nothing was submitted before the timeout.{RESET}")
 
-    print(f"\n{BOLD}Everything the server was holding:{RESET}\n")
+    print(f"\n{BOLD}Everything the server held:{RESET}\n")
     print(json.dumps(envelope, indent=2))
 
     plaintext = decrypt(key, envelope)
-    print(f"\n{BOLD}Decrypted here, with a key the server never had:{RESET}\n")
+    print(f"\n{BOLD}Decrypted here, with a key it never had:{RESET}\n")
     print(f"  {GREEN}{plaintext.decode(errors='replace')}{RESET}\n")
 
     status, _ = get(f"{host}/key/{reg['uuid']}/result")

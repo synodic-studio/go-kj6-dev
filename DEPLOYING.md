@@ -73,4 +73,4 @@ npx wrangler pages dev dist --kv VAULT
 
 The test suite stubs KV entirely, so `npm test` covers the `/key` routes without any binding.
 
-`scripts/demo.sh` is a guided tour of a running deployment and a smoke test of one: point it at any host with `--host`, add `--auto` to run the `/key` handoff without a second device.
+`scripts/demo.sh` is a guided tour of a running deployment and a smoke test of one. It comes in three lengths (`short`, `long`, `tour`), takes `--host` to point at any deployment, and takes `--auto` to run start to finish with no interaction. Copy `scripts/demo.env.example` to `scripts/demo.env` to let it send the wrapped link to a chat.

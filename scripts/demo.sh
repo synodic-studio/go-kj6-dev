@@ -2,26 +2,49 @@
 #
 # A guided tour of a running deployment, and a smoke test of one.
 #
-# Five beats: what a wrapped link is, what it refuses to be, and the encrypted
-# handoff behind /key. Each command is printed before it runs, so the terminal
-# is the slide deck.
+#   scripts/demo.sh              pick a length from the menu
+#   scripts/demo.sh short        the message and the tap, about 30 seconds
+#   scripts/demo.sh long         adds what it refuses, and the /key handoff
+#   scripts/demo.sh tour         every beat, including the test suite
 #
-#   scripts/demo.sh                       tour https://go.synodic.co
-#   scripts/demo.sh --auto                no second device needed, runs start to finish
-#   scripts/demo.sh --host http://localhost:8788
+#   --auto     run start to finish with no interaction, for rehearsal
+#   --host H   point at another deployment, default https://go.synodic.co
 #
-# For the offline path, serve it yourself first:
+# Nothing needs typing. One keypress advances a beat, one keypress picks a
+# length. Credentials come from scripts/demo.env, which is gitignored; see
+# scripts/demo.env.example. Without it the Telegram beat prints its cue
+# instead of sending anything, and every other beat is unaffected.
+#
+# Offline, if the venue network is hostile:
 #   npm run build && npx wrangler pages dev dist --kv VAULT
+#   scripts/demo.sh long --host http://localhost:8788
+# The /raw and /key beats work unchanged. The Telegram beat still sends,
+# but the link it sends points at a host only this laptop can reach.
+#
+# Before demoing on a machine for the first time:
+#   1. Telegram is signed in and the destination chat is visible.
+#   2. Obsidian is installed and DEMO_VAULT/DEMO_NOTE actually exist in it.
+#   3. Run it once in the browser you will demo with, and answer the
+#      "allow this site to open Obsidian" prompt, so it stays quiet live.
 #
 # Deliberately without `set -e`. A failed beat prints and the tour continues.
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOST="https://go.synodic.co"
+MODE=""
 AUTO=""
+
+[ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
+DEMO_VAULT="${DEMO_VAULT:-Notes}"
+DEMO_NOTE="${DEMO_NOTE:-today.md}"
+DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
+
 while [ $# -gt 0 ]; do
   case "$1" in
+    short|long|tour) MODE="$1"; shift ;;
     --host) HOST="${2%/}"; shift 2 ;;
-    --auto) AUTO="--auto"; shift ;;
-    -h|--help) sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --auto) AUTO="1"; shift ;;
+    -h|--help) sed -n '3,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -32,81 +55,168 @@ else
   B=""; D=""; C=""; Y=""; R=""
 fi
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-
-beat() { printf '\n%s\n%s== %s%s\n\n' "$D--------------------------------------------------------------$R" "$B" "$1" "$R"; }
+beat() { printf '\n%s%s== %s%s\n\n' "$D" "$B" "$1" "$R"; }
 say()  { printf '%s%s%s\n' "$D" "$1" "$R"; }
-pause() { printf '\n%s[enter]%s ' "$D" "$R"; read -r _; }
+warn() { printf '%s%s%s\n' "$Y" "$1" "$R"; }
+
+# Any single key advances. Never waits when rehearsing.
+advance() {
+  [ -n "$AUTO" ] && return 0
+  printf '\n%s[any key]%s' "$D" "$R"
+  read -n 1 -s -r _ </dev/tty 2>/dev/null || read -r _ </dev/tty 2>/dev/null
+  printf '\r%*s\r' 12 ""
+}
 
 # Print a command, then run it.
 run() {
-  printf '%s$ %s%s\n' "$C" "$1" "$R"
-  shift
-  "$@"
-  local rc=$?
-  [ $rc -ne 0 ] && printf '%s(exit %d)%s\n' "$Y" "$rc" "$R"
-  return $rc
+  local label="$1"; shift
+  printf '%s$ %s%s\n' "$C" "$label" "$R"
+  "$@" || printf '%s(exit %d)%s\n' "$Y" "$?" "$R"
 }
 
-printf '\n%sPatchbay Go%s  %s%s%s\n' "$B" "$R" "$D" "$HOST" "$R"
-
-beat "The problem, on the device"
-say "Paste an obsidian:// URI into a chat app and it arrives as dead text."
-say "Chat apps only linkify web links, so the URI your phone knows how to open"
-say "is the one thing it refuses to make tappable."
-say ""
-say "Send this instead, and it is a link like any other:"
-printf '\n  %s/obsidian/Notes/today.md\n' "$HOST"
-pause
-
-beat "A wrapped link is one page and no state"
-say "That link is not a lookup. Nothing was stored when it was built, and"
-say "nothing is stored when it is opened. The path is the whole input."
-echo
-run "curl -s $HOST/obsidian/Notes/today.md | grep -i 'http-equiv=\"refresh\"'" \
-  sh -c "curl -s '$HOST/obsidian/Notes/today.md' | grep -i 'http-equiv=\"refresh\"'"
-echo
-say "The browser is allowed to follow custom schemes. The chat app is not."
-say "So the link takes one hop through a browser and hands off to the app."
-say "Same routes on any hostname: nothing here is pinned to a domain."
-pause
-
-beat "What it refuses to do"
-say "/raw takes a base64url URI, so whoever builds the link picks the scheme."
-say "That is an open redirect waiting to happen, so the scheme is checked first."
-echo
-EVIL=$(printf 'https://evil.example' | base64 | tr -d '\n=' | tr '+/' '-_')
-run "curl -s -o /dev/null -w '%{http_code}' $HOST/raw/$EVIL   # https://evil.example" \
-  curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$EVIL"
-say "400. Refusing http and https is what keeps a phishing link from wearing"
-say "this domain. javascript, data, file and blob are refused for the more"
-say "obvious reason: they run or read things inside the browser."
-echo
-GOOD=$(printf 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' | base64 | tr -d '\n=' | tr '+/' '-_')
-run "curl -s -o /dev/null -w '%{http_code}' $HOST/raw/$GOOD   # spotify:track:..." \
-  curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$GOOD"
-say "200. A scheme that can only ever reach an app passes through."
-pause
-
-beat "Handing a secret over with zero knowledge"
-say "An agent needs an API key that only you have. Pasting it into the chat"
-say "leaves it in the history forever. This route passes it instead, and the"
-say "server is oblivious by construction: it only ever holds ciphertext."
-echo
-if command -v uv >/dev/null 2>&1; then
-  run "uv run scripts/key_demo.py --host $HOST $AUTO" \
-    uv run "$ROOT/scripts/key_demo.py" --host "$HOST" $AUTO
-else
-  printf '%suv is not installed, so this beat needs it: https://docs.astral.sh/uv/%s\n' "$Y" "$R"
+if [ -z "$MODE" ]; then
+  printf '\n%sPatchbay Go%s\n\n' "$B" "$R"
+  printf '  %s1%s  short   the message and the tap, about 30 seconds\n' "$B" "$R"
+  printf '  %s2%s  long    adds what it refuses, and the encrypted handoff\n' "$B" "$R"
+  printf '  %s3%s  tour    every beat, including the test suite\n\n' "$B" "$R"
+  printf '%s[1, 2 or 3]%s ' "$D" "$R"
+  read -n 1 -s -r pick </dev/tty
+  case "$pick" in
+    1) MODE="short" ;;
+    2) MODE="long" ;;
+    3) MODE="tour" ;;
+    *) MODE="short" ;;
+  esac
+  printf '%s\n' "$MODE"
 fi
-pause
 
-beat "What it costs to run"
-say "One file, no runtime dependencies, and a suite that needs no network"
-say "and no Cloudflare account."
-echo
-run "wc -l src/worker.js" wc -l "$ROOT/src/worker.js"
-echo
-run "npm test" sh -c "cd '$ROOT' && npm test 2>&1 | tail -5"
+WRAPPED="$HOST/obsidian/$DEMO_VAULT/$DEMO_NOTE"
+SCHEME="obsidian://open?vault=$DEMO_VAULT&file=$DEMO_NOTE"
+
+# ---------------------------------------------------------------------------
+
+beat_telegram() {
+  beat "The problem, and the whole fix"
+  say "Chat apps only linkify web links. The URI your machine knows how to"
+  say "open is the one thing the chat refuses to make tappable."
+  echo
+
+  if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+    warn "No Telegram credentials, so nothing was sent. See scripts/demo.env.example."
+    say "The message would carry these two lines, one dead and one tappable:"
+    printf '\n  %s\n  %s\n' "$SCHEME" "$WRAPPED"
+    return
+  fi
+
+  local text payload code
+  text="Your note:
+$SCHEME
+
+Or tap:
+$WRAPPED"
+  payload=$(TEXT="$text" CHAT="$TELEGRAM_CHAT_ID" THREAD="$TELEGRAM_THREAD_ID" python3 -c '
+import json, os
+body = {"chat_id": os.environ["CHAT"], "text": os.environ["TEXT"],
+        "disable_web_page_preview": True}
+if os.environ.get("THREAD"):
+    body["message_thread_id"] = int(os.environ["THREAD"])
+print(json.dumps(body))')
+
+  printf '%s$ telegram sendMessage%s\n' "$C" "$R"
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+    "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+    -H 'Content-Type: application/json' -d "$payload")
+  if [ "$code" = "200" ]; then
+    say "Sent. Both lines are in the chat now."
+    echo
+    say "The first one is grey text. The second is a link, and tapping it"
+    say "opens the note. Same URI underneath, one hop through a browser."
+  else
+    warn "Telegram returned HTTP $code, so check the token and chat id."
+  fi
+}
+
+beat_mechanism() {
+  beat "One page, and no state anywhere"
+  say "That link is not a lookup. Nothing was stored when it was built, and"
+  say "nothing is stored when it is opened. The path is the whole input."
+  echo
+  run "curl -s $WRAPPED | grep http-equiv" \
+    sh -c "curl -s '$WRAPPED' | grep -i 'http-equiv=\"refresh\"'"
+  echo
+  say "That is the entire mechanism. Browsers may follow custom schemes and"
+  say "chat apps may not, so the link borrows a browser for a fraction of a"
+  say "second. Nothing is pinned to a hostname either: any deployment serves"
+  say "the same routes and hands out links on its own domain."
+}
+
+beat_raw() {
+  beat "What it refuses to do"
+  say "/raw takes a base64url URI, so whoever builds the link picks the"
+  say "scheme. That is an open redirect waiting to happen, so it is checked."
+  echo
+  local evil good
+  evil=$(printf 'https://evil.example' | base64 | tr -d '\n=' | tr '+/' '-_')
+  good=$(printf 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' | base64 | tr -d '\n=' | tr '+/' '-_')
+  run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 https://evil.example)" \
+    curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$evil"
+  say "Refusing http and https is what stops a phishing link from wearing"
+  say "this domain. javascript, data, file and blob are refused for the more"
+  say "obvious reason: they run or read things inside the browser."
+  echo
+  run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 spotify:track:...)" \
+    curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$good"
+  say "A scheme that can only ever reach an app passes through."
+}
+
+beat_key() {
+  beat "Handing a secret over with zero knowledge"
+  say "An agent needs an API key that only you have. Pasting it into the chat"
+  say "leaves it in the history forever. This passes it instead, and the"
+  say "server is oblivious by construction: it only ever holds ciphertext."
+  echo
+  if ! command -v uv >/dev/null 2>&1; then
+    warn "This beat needs uv: https://docs.astral.sh/uv/"
+    return
+  fi
+  local flags="--host $HOST --label $DEMO_KEY_LABEL"
+  [ -n "$AUTO" ] && flags="$flags --auto"
+  [ -z "$AUTO" ] && [ -n "$TELEGRAM_BOT_TOKEN" ] && flags="$flags --telegram"
+  run "uv run scripts/key_demo.py $flags" \
+    uv run "$ROOT/scripts/key_demo.py" $flags
+}
+
+beat_cost() {
+  beat "What it costs to run"
+  say "One file, no runtime dependencies, and a suite that needs no network"
+  say "and no Cloudflare account."
+  echo
+  run "wc -l src/worker.js" wc -l "$ROOT/src/worker.js"
+  echo
+  run "npm test" sh -c "cd '$ROOT' && npm test 2>&1 | tail -5"
+}
+
+# ---------------------------------------------------------------------------
+
+printf '\n%sPatchbay Go%s  %s%s, %s%s\n' "$B" "$R" "$D" "$HOST" "$MODE" "$R"
+
+case "$MODE" in
+  short)
+    beat_telegram
+    ;;
+  long)
+    beat_telegram; advance
+    beat_mechanism; advance
+    beat_raw; advance
+    beat_key
+    ;;
+  tour)
+    beat_telegram; advance
+    beat_mechanism; advance
+    beat_raw; advance
+    beat_key; advance
+    beat_cost
+    ;;
+esac
 
 printf '\n%sgithub.com/synodic-studio/patchbay-go%s\n\n' "$D" "$R"

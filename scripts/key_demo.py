@@ -11,6 +11,7 @@ one-shot, so the fetch happens exactly once here: printing the envelope and
 decrypting it are two views of the same response.
 
     key_demo.py                 register, wait for a human to submit, reveal
+    key_demo.py --telegram      send the link to a chat, the way an agent would
     key_demo.py --auto          submit the secret from here too, no browser
 
 The private key lives in memory for the life of the process and is never
@@ -63,6 +64,27 @@ def get(url):
         return e.code, None
 
 
+def telegram(text):
+    """Send the link the way a real agent would ask for a secret.
+
+    Credentials come from the environment, so the demo config stays out of
+    the repo. Returns False and stays quiet if there is nothing to send with.
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        return False
+    body = {"chat_id": chat, "text": text, "disable_web_page_preview": True}
+    thread = os.environ.get("TELEGRAM_THREAD_ID")
+    if thread:
+        body["message_thread_id"] = int(thread)
+    try:
+        status, _ = post(f"https://api.telegram.org/bot{token}/sendMessage", body)
+        return status == 200
+    except Exception:
+        return False
+
+
 def encrypt_to(public_key, secret):
     """The browser's half: fresh AES key, wrapped to the requester's public key."""
     aes = AESGCM.generate_key(bit_length=256)
@@ -106,6 +128,7 @@ def main():
     ap.add_argument("--host", default=os.environ.get("PATCHBAY_HOST", "https://go.synodic.co"))
     ap.add_argument("--label", default="openai-api-key")
     ap.add_argument("--auto", action="store_true", help="submit the secret from here, no browser")
+    ap.add_argument("--telegram", action="store_true", help="send the link to a chat")
     ap.add_argument("--timeout", type=int, default=180, help="seconds to wait for a submission")
     args = ap.parse_args()
     host = args.host.rstrip("/")
@@ -128,7 +151,15 @@ def main():
     if status != 200 or not reg:
         sys.exit(f"{YELLOW}register returned HTTP {status}{RESET}")
 
-    print(f"\n{BOLD}Tap this, paste anything, and send it:{RESET}\n")
+    sent = False
+    if args.telegram:
+        sent = telegram(f"I need your {args.label}. Paste it here, it is "
+                        f"encrypted in your browser:\n\n{reg['url']}")
+
+    if sent:
+        print(f"\n{BOLD}Asked for it in the chat. Tap the link there:{RESET}\n")
+    else:
+        print(f"\n{BOLD}Tap this, paste anything, and send it:{RESET}\n")
     print(f"  {reg['url']}\n")
 
     if args.auto:

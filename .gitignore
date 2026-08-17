@@ -8,3 +8,6 @@ dist/
 # Operational deploy config (worker name + KV namespace id are environment
 # state, not source). Use wrangler.example.toml as the template.
 wrangler.toml
+
+# Local demo credentials (bot token, chat id). Template is demo.env.example.
+scripts/demo.env

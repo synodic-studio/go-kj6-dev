@@ -57,9 +57,16 @@ warn() { printf '%s%s%s\n' "$Y" "$1" "$R"; }
 # the terminal opened at startup, so a redirected stdin does not swallow them.
 advance() {
   [ -n "$AUTO" ] && return 0
-  printf '\n%s[any key]%s' "$D" "$R"
+  printf '\n%s   [ %s ]%s' "$D" "$1" "$R"
   read -n 1 -s -r _ <&3
-  printf '\r%*s\r' 12 ""
+  printf '\r%*s\r' $((${#1} + 12)) ""
+}
+
+# What you do, as opposed to what the machine is doing. Kept visually apart
+# from everything else so it cannot be mistaken for output.
+cue() {
+  printf '\n%s%s   %s%s\n' "$Y" "$B" "$1" "$R"
+  printf '%s%s   %s%s\n' "$Y" "$D" "$2" "$R"
 }
 
 # Print a command, then run it.
@@ -108,7 +115,7 @@ beat_telegram() {
     warn "No Telegram credentials, so nothing was sent. See scripts/demo.env.example."
     say "The message would carry the raw URI, the same URI behind a label,"
     say "and the wrapped link:"
-    printf '\n  %s\n  %s\n' "$SCHEME" "$WRAPPED"
+    printf '\n  %s\n  %s%s%s\n' "$SCHEME" "$B" "$WRAPPED" "$R"
     return
   fi
 
@@ -151,6 +158,7 @@ print(json.dumps(body))')
     -H 'Content-Type: application/json' -d "$payload")
   if [ "$code" = "200" ]; then
     say "Sent. The same note, four ways."
+    cue "ON THE PHONE" "Open the thread and try each of the four in turn."
     echo
     say "The top two are grey text. The second was a real hyperlink: the chat"
     say "kept the label and dropped the link, and called it a success."
@@ -203,8 +211,17 @@ beat_key() {
 
 printf '\n%sPatchbay Go%s  %s%s%s\n' "$B" "$R" "$D" "$HOST" "$R"
 
-beat_telegram; advance
-beat_raw; advance
+# /raw and /key both need the deployment; Telegram does not. So an unreachable
+# host is worth saying up front, and not worth exiting on.
+if ! curl -s -o /dev/null -m 8 "$HOST/" 2>/dev/null; then
+  echo
+  warn "No answer from $HOST, so the /raw and /key beats will fail."
+  warn "Serve it here instead: npm run build && npx wrangler pages dev dist --kv VAULT"
+  warn "then re-run with --host http://localhost:8788."
+fi
+
+beat_telegram; advance "press when the phone has opened the note"
+beat_raw;      advance "press for the secret handoff"
 beat_key
 
 printf '\n%sgithub.com/synodic-studio/patchbay-go%s\n\n' "$D" "$R"

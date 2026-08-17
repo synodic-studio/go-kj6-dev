@@ -35,7 +35,6 @@ MODE=""
 AUTO=""
 
 [ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
-DEMO_NOTE_ALT="${DEMO_NOTE_ALT:-}"
 DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
 
 while [ $# -gt 0 ]; do
@@ -100,7 +99,6 @@ fi
 encode_path() { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"; }
 
 WRAPPED="$HOST/obsidian/$DEMO_VAULT/$(encode_path "$DEMO_NOTE")"
-WRAPPED_ALT=""
 [ -n "$DEMO_NOTE_ALT" ] && WRAPPED_ALT="$HOST/obsidian/$DEMO_VAULT/$(encode_path "$DEMO_NOTE_ALT")"
 SCHEME="obsidian://open?vault=$DEMO_VAULT&file=$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$DEMO_NOTE")"
 
@@ -138,11 +136,11 @@ lines = [
     "The URI itself:", e(env["SCHEME"]), "",
     "The same URI behind a label, which does not help:",
     anchor(env["SCHEME"], "Open the note"), "",
-    "Wrapped in https:", e(env["WRAPPED"]),
+    "Patchbay Go links:", e(env["WRAPPED"]),
 ]
 if env["ALT"]:
     lines.append(e(env["ALT"]))
-lines += ["", "And wrapped behind labels, which does:",
+lines += ["", "The same links, labeled:",
           anchor(env["WRAPPED"], label(env["NOTE"]))]
 if env["ALT"]:
     lines.append(anchor(env["ALT"], label(env["NOTE_ALT"])))

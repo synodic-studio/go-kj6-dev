@@ -69,6 +69,26 @@ cue() {
   printf '%s%s   %s%s\n' "$Y" "$D" "$2" "$R"
 }
 
+# A status code alone is indistinguishable from one typed into this script.
+# Print the server's own words with it, and the URL that produced them, so it
+# can be opened in a browser by anyone who would rather check than take it.
+probe() {
+  local label="$1" url="$2" out code body
+  printf '%s$ curl %s%s\n' "$C" "$label" "$R"
+  out=$(curl -s -m 10 -w $'\n%{http_code}' "$url")
+  code="${out##*$'\n'}"
+  body="${out%$'\n'*}"
+  # An allowed scheme comes back as a redirect page. The meta refresh is the
+  # part that matters, and it quotes the target back; the rest is styling.
+  case "$body" in
+    *'http-equiv="refresh"'*) body=$(printf '%s' "$body" | grep -o '<meta http-equiv="refresh"[^>]*>') ;;
+    *) body=$(printf '%s' "$body" | head -1) ;;
+  esac
+  printf '  %s%s%s\n' "$B" "${code:-000}" "$R"
+  [ -n "$body" ] && printf '  %s%s%s\n' "$D" "$body" "$R"
+  printf '  %s%s%s\n' "$D" "$url" "$R"
+}
+
 # Print a command, then run it.
 run() {
   local label="$1"; shift
@@ -180,14 +200,15 @@ beat_raw() {
   local evil good
   evil=$(printf 'https://evil.example' | base64 | tr -d '\n=' | tr '+/' '-_')
   good=$(printf 'spotify:track:4cOdK2wGLETKBW3PvgPWqT' | base64 | tr -d '\n=' | tr '+/' '-_')
-  run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 https://evil.example)" \
-    curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$evil"
+  probe "$HOST/raw/\$(base64 https://evil.example)" "$HOST/raw/$evil"
+  echo
   say "Refusing http and https stops a phishing link from wearing this"
   say "domain. javascript, data and file would run inside the browser."
   echo
-  run "curl -so /dev/null -w '%{http_code}' $HOST/raw/\$(base64 spotify:track:...)" \
-    curl -s -o /dev/null -w '%{http_code}\n' "$HOST/raw/$good"
-  say "A scheme that can only reach an app passes."
+  probe "$HOST/raw/\$(base64 spotify:track:...)" "$HOST/raw/$good"
+  echo
+  say "A scheme that can only reach an app passes. Open either one in a"
+  say "browser if you would rather see it than take my word for it."
 }
 
 beat_key() {

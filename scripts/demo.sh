@@ -35,8 +35,6 @@ MODE=""
 AUTO=""
 
 [ -f "$ROOT/scripts/demo.env" ] && . "$ROOT/scripts/demo.env"
-DEMO_VAULT="${DEMO_VAULT:-Notes}"
-DEMO_NOTE="${DEMO_NOTE:-today.md}"
 DEMO_NOTE_ALT="${DEMO_NOTE_ALT:-}"
 DEMO_KEY_LABEL="${DEMO_KEY_LABEL:-openai-api-key}"
 
@@ -91,6 +89,13 @@ if [ -z "$MODE" ]; then
   printf '%s\n' "$MODE"
 fi
 
+if [ -z "$DEMO_VAULT" ] || [ -z "$DEMO_NOTE" ]; then
+  printf '%sSet DEMO_VAULT and DEMO_NOTE in scripts/demo.env before demoing.%s\n' "$Y" "$R"
+  printf '%sThey have to name a vault and note that exist here, or the link%s\n' "$Y" "$R"
+  printf '%sopens an error dialog instead of a page. See demo.env.example.%s\n' "$Y" "$R"
+  exit 1
+fi
+
 # Percent-encode a note path for the URL, leaving the separators alone.
 encode_path() { python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"; }
 
@@ -115,28 +120,37 @@ beat_telegram() {
     return
   fi
 
-  # Three attempts at the same destination, in HTML mode so the middle one
-  # can be a real anchor. Telegram accepts that anchor and then drops it,
-  # which is the point: the markup arrives with no link on it at all.
+  # The same destination four ways, in HTML mode so two of them can be real
+  # anchors. Telegram accepts the custom-scheme anchor and then drops it,
+  # which is the point: identical markup, and only the https one survives.
   local payload code
   payload=$(SCHEME="$SCHEME" WRAPPED="$WRAPPED" ALT="$WRAPPED_ALT" \
+    NOTE="$DEMO_NOTE" NOTE_ALT="$DEMO_NOTE_ALT" \
     CHAT="$TELEGRAM_CHAT_ID" THREAD="$TELEGRAM_THREAD_ID" python3 -c '
 import html, json, os
 
-scheme, wrapped, alt = os.environ["SCHEME"], os.environ["WRAPPED"], os.environ["ALT"]
+env = os.environ
 e = html.escape
+label = lambda path: e(path.rsplit("/", 1)[-1])
+anchor = lambda href, text: f"<a href=\"{e(href, quote=True)}\">{text}</a>"
+
 lines = [
-    "Straight up:", e(scheme), "",
-    "Behind a label, to force it:",
-    f"<a href=\"{e(scheme, quote=True)}\">Open the note</a>", "",
-    "Wrapped:", e(wrapped),
+    "The URI itself:", e(env["SCHEME"]), "",
+    "The same URI behind a label, which does not help:",
+    anchor(env["SCHEME"], "Open the note"), "",
+    "Wrapped in https:", e(env["WRAPPED"]),
 ]
-if alt:
-    lines.append(e(alt))
-body = {"chat_id": os.environ["CHAT"], "parse_mode": "HTML",
+if env["ALT"]:
+    lines.append(e(env["ALT"]))
+lines += ["", "And wrapped behind labels, which does:",
+          anchor(env["WRAPPED"], label(env["NOTE"]))]
+if env["ALT"]:
+    lines.append(anchor(env["ALT"], label(env["NOTE_ALT"])))
+
+body = {"chat_id": env["CHAT"], "parse_mode": "HTML",
         "text": "\n".join(lines), "disable_web_page_preview": True}
-if os.environ.get("THREAD"):
-    body["message_thread_id"] = int(os.environ["THREAD"])
+if env.get("THREAD"):
+    body["message_thread_id"] = int(env["THREAD"])
 print(json.dumps(body))')
 
   printf '%s$ telegram sendMessage%s\n' "$C" "$R"
@@ -144,13 +158,14 @@ print(json.dumps(body))')
     "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
     -H 'Content-Type: application/json' -d "$payload")
   if [ "$code" = "200" ]; then
-    say "Sent. Three attempts at the same note, in the chat now."
+    say "Sent. The same note, addressed four ways."
     echo
-    say "The first is grey text. The second was sent as a real hyperlink and"
-    say "arrived as grey text too: Telegram took the markup, kept the label,"
-    say "and threw the link away without saying so."
+    say "The raw URI is grey text, which is expected. The labeled version was"
+    say "sent as a genuine hyperlink and arrived as grey text as well: the chat"
+    say "kept the label, discarded the link, and reported success either way."
     echo
-    say "The last one is tappable, and it opens the note."
+    say "The wrapped ones are live, including behind labels. Identical markup,"
+    say "and the only thing that changed is the scheme underneath."
   else
     warn "Telegram returned HTTP $code, so check the token and chat id."
   fi

@@ -894,6 +894,7 @@ function keyFormPageE2E(label, publicKeyB64) {
     <p class="error" id="err" style="display:none"></p>
     <button id="go" onclick="submitSecret()">Encrypt &amp; send</button>
     <p class="note"><span class="lock">&#128274; Encrypted in your browser</span> before it is sent. The server only ever stores ciphertext and cannot read it.</p>
+    <p class="note">This link works once, and expires ten minutes after it was created.</p>
   </div>
   <script>
     const PUBKEY = ${jsStringLiteral(publicKeyB64)};
